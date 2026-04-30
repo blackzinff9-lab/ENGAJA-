@@ -5,6 +5,7 @@ import { PLATFORM_CONFIG } from './types';
 import { StatusBackend } from './api';
 
 
+
 interface DashboardProps {
   aoGerar: (tema: string, plataforma: Platform) => void;
   carregando: boolean;
