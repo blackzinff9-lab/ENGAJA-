@@ -1,11 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import { User, Platform, AppState, GeneratedContent } from './types';
-import { gerarConteudo, verificarStatus, StatusBackend, salvarUsuario, carregarUsuario, limparUsuario } from './lib/api';
-import PaginaLogin from './components/LoginPage';
-import Header from './components/Header';
-import Dashboard from './components/Dashboard';
-import EstadoCarregando from './components/LoadingState';
-import ExibirResultado from './components/ResultDisplay';
+import { gerarConteudo, verificarStatus, StatusBackend, salvarUsuario, carregarUsuario, limparUsuario } from './api';
+import PaginaLogin from './LoginPage';
+import Header from './Header';
+import Dashboard from './Dashboard';
+import EstadoCarregando from './LoadingState';
+import ExibirResultado from './ResultDisplay';
+
 
 function TransicaoPagina({ children, pagina }: { children: React.ReactNode; pagina: string }) {
   return (
