@@ -19,8 +19,9 @@ import {
   Database,
   Bot,
 } from 'lucide-react';
-import { GeneratedContent } from '../types';
-import { PLATFORM_CONFIG } from '../types';
+import { GeneratedContent } from './types';
+import { PLATFORM_CONFIG } from './types';
+
 
 interface ResultadoProps {
   conteudo: GeneratedContent;
