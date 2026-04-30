@@ -1,11 +1,13 @@
 import { LogOut, Zap, Wifi, WifiOff, Server } from 'lucide-react';
-import { User } from '../types';
-import { StatusBackend } from '../lib/api';
+// Altera as linhas de import para estas:
+import { User, Platform, AppState, GeneratedContent } from './types';
+import { gerarConteudo, verificarStatus, StatusBackend, salvarUsuario, carregarUsuario, limparUsuario } from './api';
+import PaginaLogin from './LoginPage';
+import Header from './Header';
+import Dashboard from './Dashboard';
+import EstadoCarregando from './LoadingState';
+import ExibirResultado from './ResultDisplay';
 
-interface HeaderProps {
-  usuario: User;
-  aoSair: () => void;
-  statusBackend: StatusBackend | null;
 }
 
 export default function Header({ usuario, aoSair, statusBackend }: HeaderProps) {
