@@ -103,7 +103,7 @@ async def google_login(request: Request):
 
 
 @app.get("/api/auth/google/callback")
-async def google_callback(code: str = Query(...), request: Request):
+async def google_callback(request: Request, code: str = Query(...)):
     """
     Callback do Google OAuth.
     Troca o código de autorização por dados do usuário.
