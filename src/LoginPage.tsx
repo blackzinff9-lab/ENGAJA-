@@ -3,6 +3,7 @@ import { Zap, Sparkles, TrendingUp, Video, Hash, Wand2, ArrowRight, Loader2 } fr
 import { StatusBackend, urlLoginGoogle } from './api';
 
 
+
 interface LoginProps {
   aoEntrar: (nome: string, email: string, avatar: string) => void;
   statusBackend: StatusBackend | null;
