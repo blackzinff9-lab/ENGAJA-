@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Loader2, Sparkles, TrendingUp, Film, Hash } from 'lucide-react';
-import { Platform } from '../types';
-import { PLATFORM_CONFIG } from '../types';
+import { Platform } from './types';
+import { PLATFORM_CONFIG } from './types';
+
 
 interface LoadingStateProps {
   tema: string;
