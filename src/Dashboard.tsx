@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Sparkles, ArrowRight, Loader2, Lightbulb, Target, TrendingUp, Server } from 'lucide-react';
-import { Platform } from '../types';
-import { PLATFORM_CONFIG } from '../types';
-import { StatusBackend } from '../lib/api';
+import { Platform } from './types';
+import { PLATFORM_CONFIG } from './types';
+import { StatusBackend } from './api';
+
 
 interface DashboardProps {
   aoGerar: (tema: string, plataforma: Platform) => void;
