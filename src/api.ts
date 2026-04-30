@@ -1,6 +1,7 @@
 import { GeneratedContent, Platform, User } from './types';
 
 
+
 // URL base da API do backend
 const API_BASE = (import.meta as any).env?.VITE_API_URL || '';
 
