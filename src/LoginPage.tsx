@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Zap, Sparkles, TrendingUp, Video, Hash, Wand2, ArrowRight, Loader2 } from 'lucide-react';
-import { StatusBackend, urlLoginGoogle } from '../lib/api';
+import { StatusBackend, urlLoginGoogle } from './api';
+
 
 interface LoginProps {
   aoEntrar: (nome: string, email: string, avatar: string) => void;
