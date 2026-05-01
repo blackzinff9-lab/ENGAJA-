@@ -53,7 +53,6 @@ GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 # URL base do servidor (auto-detectada)
 def get_base_url(request=None):
     """Detecta a URL base do servidor automaticamente."""
-    # Prioridade: variável de ambiente > request > localhost
     render_url = os.getenv("RENDER_EXTERNAL_URL", "")
     if render_url:
         return render_url.rstrip("/")
@@ -82,10 +81,6 @@ class RequisicaoConteudo(BaseModel):
 
 @app.get("/api/auth/google/login")
 async def google_login(request: Request):
-    """
-    Inicia o fluxo de login com Google.
-    Redireciona o usuário para a tela de consentimento do Google.
-    """
     base_url = get_base_url(request)
     redirect_uri = f"{base_url}/api/auth/google/callback"
 
@@ -104,17 +99,12 @@ async def google_login(request: Request):
 
 @app.get("/api/auth/google/callback")
 async def google_callback(request: Request, code: str = Query(...)):
-    """
-    Callback do Google OAuth.
-    Troca o código de autorização por dados do usuário.
-    """
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
         return RedirectResponse(url="/?erro=google_nao_configurado")
 
     base_url = get_base_url(request)
     redirect_uri = f"{base_url}/api/auth/google/callback"
 
-    # Trocar código por tokens
     try:
         token_response = requests.post(
             "https://oauth2.googleapis.com/token",
@@ -129,13 +119,11 @@ async def google_callback(request: Request, code: str = Query(...)):
         )
 
         if not token_response.ok:
-            print(f"[Google OAuth] Erro ao trocar código: {token_response.text}")
             return RedirectResponse(url="/?erro=falha_autenticacao")
 
         tokens = token_response.json()
         access_token = tokens.get("access_token", "")
 
-        # Buscar dados do usuário
         userinfo_response = requests.get(
             "https://www.googleapis.com/oauth2/v2/userinfo",
             headers={"Authorization": f"Bearer {access_token}"},
@@ -151,7 +139,6 @@ async def google_callback(request: Request, code: str = Query(...)):
         email = user_info.get("email", "")
         avatar = user_info.get("picture", f"https://ui-avatars.com/api/?name={urllib.parse.quote(nome)}&background=6366f1&color=fff&size=128&bold=true")
 
-        # Criar JWT com dados do usuário
         payload = {
             "nome": nome,
             "email": email,
@@ -161,7 +148,6 @@ async def google_callback(request: Request, code: str = Query(...)):
         }
         token_jwt = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
 
-        # Redirecionar para o frontend com o token
         params = urllib.parse.urlencode({
             "token": token_jwt,
             "nome": nome,
@@ -178,7 +164,6 @@ async def google_callback(request: Request, code: str = Query(...)):
 
 @app.get("/api/auth/verificar")
 async def verificar_token(token: str = Query(...)):
-    """Verifica se um token JWT é válido e retorna os dados do usuário."""
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         return {
@@ -198,7 +183,6 @@ async def verificar_token(token: str = Query(...)):
 # ==========================================
 
 def chamar_groq(prompt: str) -> str:
-    """Chama a API do Groq com o modelo Llama 4 Scout."""
     if not GROQ_API_KEY:
         raise HTTPException(status_code=500, detail="GROQ_API_KEY não configurada no servidor.")
 
@@ -238,7 +222,6 @@ def chamar_groq(prompt: str) -> str:
 
 
 def pesquisar_tendencias_youtube(tema: str) -> str:
-    """Pesquisa tendências reais no YouTube usando a API oficial."""
     if not YOUTUBE_API_KEY:
         return ""
     try:
@@ -270,7 +253,6 @@ def pesquisar_tendencias_youtube(tema: str) -> str:
 
 
 def pesquisar_tendencias_mcp(tema: str, plataforma: str) -> str:
-    """Pesquisa tendências via Trends MCP API (TikTok e Instagram)."""
     if not TRENDSMCP_API_KEY:
         return ""
     try:
@@ -303,7 +285,6 @@ def pesquisar_tendencias_mcp(tema: str, plataforma: str) -> str:
 
 
 def fallback_groq_pesquisa(tema: str, plataforma: str) -> str:
-    """Usa o próprio Groq como fallback para pesquisar tendências."""
     prompt = (
         f"Com base no seu vasto conhecimento sobre o que é popular na internet, "
         f"aja como um especialista em tendências do {plataforma}. "
@@ -322,9 +303,6 @@ def fallback_groq_pesquisa(tema: str, plataforma: str) -> str:
 
 @app.post("/api/gerar")
 async def gerar_conteudo(req: RequisicaoConteudo):
-    """
-    Endpoint principal: recebe tema e plataforma, retorna conteúdo gerado pela IA.
-    """
     if not req.tema.strip():
         raise HTTPException(status_code=400, detail="O tema não pode estar vazio.")
     if req.plataforma not in ("tiktok", "instagram", "youtube"):
@@ -349,7 +327,6 @@ async def gerar_conteudo(req: RequisicaoConteudo):
         if dados_tendencias:
             fonte_tendencias = "trends_mcp"
 
-    # PASSO 2: Fallback para Groq
     if not dados_tendencias:
         try:
             dados_tendencias = fallback_groq_pesquisa(req.tema, nome_plataforma)
@@ -358,36 +335,34 @@ async def gerar_conteudo(req: RequisicaoConteudo):
             dados_tendencias = ""
             fonte_tendencias = "groq_fallback"
 
-    # PASSO 3: Gerar conteúdo com Groq
-    prompt_principal = f"""Você é um especialista em criação de conteúdo viral para {nome_plataforma}. 
-Com base nas informações abaixo, crie conteúdo completo para um vídeo sobre "{req.tema}".
+    # PASSO 3: Gerar conteúdo com Groq – prompt rigoroso
+    prompt_principal = f"""
+Você é um especialista em SEO e criação de conteúdo para {nome_plataforma}.
+Com base nas tendências atuais e no tema "{req.tema}", crie um pacote de conteúdo viral.
 
-{f"DADOS DE TENDÊNCIAS PESQUISADOS:\n{dados_tendencias}\n\n" if dados_tendencias else ""}
-INSTRUÇÕES:
-- Crie conteúdo otimizado para {nome_plataforma}
-- Use ganchos psicológicos e técnicas de retenção
-- O roteiro deve ser detalhado com marcações de tempo
-- As hashtags devem ser uma mistura de populares + nicho
-- Tudo em português brasileiro
+{f"DADOS DE TENDÊNCIAS REAIS:\n{dados_tendencias}\n\n" if dados_tendencias else ""}
 
-Responda em JSON com EXATAMENTE esta estrutura (sem markdown, sem acentos nas chaves):
+REGRAS DE OURO:
+- Título, descrição e hashtags precisam compartilhar as mesmas palavras-chave para otimização do algoritmo.
+- Título: no máximo 100 caracteres, gancho forte, emoção ou curiosidade.
+- Descrição: entre 150-400 caracteres, com call-to-action claro, emojis estratégicos e palavras-chave presentes no título e hashtags.
+- Hashtags: EXATAMENTE uma string com 8 a 15 hashtags iniciadas com # e separadas APENAS por espaço. Exemplo: "#DicasDeProgramação #AprendaProgramar #DevLife"
+- Roteiro: detalhado com divisão de tempo [ABERTURA], [DESENVOLVIMENTO], [CLIMAX], [ENCERRAMENTO], com falas sugeridas e instruções visuais para reter a audiência no {nome_plataforma}.
+- Ideia de Edição: NUNCA deixe vazio. Descreva de forma prática cores, filtros, tipografia, efeitos sonoros, música, cortes e elementos visuais que combinem com o conteúdo.
+
+Responda EXCLUSIVAMENTE com um JSON válido, sem markdown, usando a estrutura:
+
 {{
-  "titulo": "titulo otimizado e chamativo para o video",
-  "descricao": "descricao envolvente com call-to-action",
-  "hashtags": ["hashtag1", "hashtag2", "hashtag3"],
-  "roteiro": "roteiro completo e detalhado com marcacoes de tempo e instrucoes de cena",
-  "ideiasEdicao": ["ideia 1 de edicao", "ideia 2 de edicao"],
-  "tendencias": ["tendencia 1 identificada", "tendencia 2 identificada"]
+  "titulo": "...",
+  "descricao": "...",
+  "hashtags": "#tag1 #tag2 #tag3 ...",
+  "roteiro": "...",
+  "ideiaEdicao": "Descrição detalhada das ideias de edição...",
+  "tendencias": ["tendencia 1", "tendencia 2"]
 }}
 
-Regras:
-- titulo: máximo 100 caracteres, impactante
-- descricao: entre 150-400 caracteres, com emojis estratégicos e CTA
-- hashtags: entre 5 e 20 hashtags relevantes (sem o #, apenas o texto)
-- roteiro: detalhado com [ABERTURA], [DESENVOLVIMENTO], [CLIMAX], [ENCERRAMENTO], incluindo falas sugeridas e instruções visuais
-- ideiasEdicao: 4-8 dicas práticas de edição específicas para {nome_plataforma}
-- tendencias: 3-5 tendências atuais identificadas na pesquisa
-- NÃO use markdown no JSON. Responda APENAS o JSON puro."""
+Não use acentos nas chaves do JSON. Mantenha o texto em português brasileiro.
+"""
 
     resposta_groq = chamar_groq(prompt_principal)
 
@@ -398,22 +373,39 @@ Regras:
             json_limpo = json_limpo.replace("```json\n", "").replace("```\n", "").replace("```", "")
         conteudo = json.loads(json_limpo)
     except json.JSONDecodeError:
-        conteudo = {
-            "titulo": f"Conteúdo sobre: {req.tema}",
-            "descricao": resposta_groq[:500],
-            "hashtags": [],
-            "roteiro": resposta_groq,
-            "ideiasEdicao": [],
-            "tendencias": [],
-        }
+        conteudo = {}
+
+    # Tratamento de cada campo para garantir consistência
+    titulo = conteudo.get("titulo", f"Conteúdo sobre: {req.tema}")
+    descricao = conteudo.get("descricao", resposta_groq[:400])
+    hashtags = conteudo.get("hashtags", "")
+    # Se vier como lista, junta com espaço e adiciona # se faltar
+    if isinstance(hashtags, list):
+        hashtags = " ".join(
+            f"#{h.strip().lstrip('#')}" for h in hashtags if h.strip()
+        )
+    if not hashtags:
+        hashtags = f"#{req.tema.replace(' ', '').lower()} #{req.plataforma} #conteudo #viral"
+
+    roteiro = conteudo.get("roteiro", resposta_groq)
+    ideia_edicao = conteudo.get("ideiaEdicao", "")
+    # Se vier como lista, junta com quebra de linha
+    if isinstance(ideia_edicao, list):
+        ideia_edicao = "\n".join(ideia_edicao)
+    if not ideia_edicao:
+        ideia_edicao = "Use filtros vibrantes com cores da moda, adicione texto animado com a fonte Montserrat, inclua música eletrônica suave de fundo (copyright free) e faça cortes rápidos no ritmo da batida."
+
+    tendencias = conteudo.get("tendencias", [])
+    if not isinstance(tendencias, list):
+        tendencias = [tendencias]
 
     return {
-        "titulo": conteudo.get("titulo", ""),
-        "descricao": conteudo.get("descricao", ""),
-        "hashtags": conteudo.get("hashtags", []),
-        "roteiro": conteudo.get("roteiro", ""),
-        "ideiasEdicao": conteudo.get("ideiasEdicao", []),
-        "tendencias": conteudo.get("tendencias", []),
+        "titulo": titulo,
+        "descricao": descricao,
+        "hashtags": hashtags,
+        "roteiro": roteiro,
+        "ideiaEdicao": ideia_edicao,  # string única descritiva
+        "tendencias": tendencias,
         "plataforma": req.plataforma,
         "tema": req.tema,
         "fonteTendencias": fonte_tendencias,
@@ -422,7 +414,6 @@ Regras:
 
 @app.get("/api/status")
 async def status():
-    """Verifica se a API está online e quais serviços estão configurados."""
     return {
         "status": "online",
         "groq_configurado": bool(GROQ_API_KEY),
@@ -433,14 +424,9 @@ async def status():
 
 
 # ==========================================
-# SERVIR FRONTEND (produção)
-# ==========================================
-
-# ==========================================
 # SERVIR FRONTEND (Versão Ultra Compatível)
 # ==========================================
 
-# Tenta encontrar a pasta 'dist' em vários lugares possíveis
 possiveis_caminhos = [
     os.path.join(os.path.dirname(__file__), "dist"),
     os.path.join(os.path.dirname(__file__), "..", "dist"),
@@ -454,32 +440,25 @@ for caminho in possiveis_caminhos:
         break
 
 if frontend_path:
-    # Monta os assets se a pasta existir
     assets_path = os.path.join(frontend_path, "assets")
     if os.path.exists(assets_path):
         app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
 
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
-        # Se o usuário tentar acessar algo da API, não faz nada aqui
         if full_path.startswith("api/"):
-             return None
-             
+            return None
         index_file = os.path.join(frontend_path, "index.html")
         if os.path.exists(index_file):
             return FileResponse(index_file)
-        
         return {"erro": "index.html nao encontrado", "caminho_tentado": index_file}
 else:
     @app.get("/")
     async def erro_dist():
         return {"erro": "Pasta dist nao encontrada no servidor"}
-        
-    
 
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
-        """Serve o index.html para qualquer rota que não seja /api/*"""
         return FileResponse(os.path.join(frontend_path, "index.html"))
 
 
