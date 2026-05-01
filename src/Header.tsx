@@ -8,7 +8,6 @@ import Dashboard from './Dashboard';
 import EstadoCarregando from './LoadingState';
 import ExibirResultado from './ResultDisplay';
 
-}
 
 export default function Header({ usuario, aoSair, statusBackend }: HeaderProps) {
   const online = statusBackend?.status === 'online';
