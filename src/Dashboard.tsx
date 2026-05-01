@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Send, 
   Youtube, 
-  Instagram, 
+  Instagram as InstagramIcon, 
   Video,
   Sparkles,
   Layout,
@@ -62,7 +62,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       const data = await response.json();
       setResultado(data);
       
-      // Scroll suave para o resultado
       setTimeout(() => {
         document.getElementById('resultado')?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
@@ -75,7 +74,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Header de Boas-vindas */}
       <div className="flex items-center gap-4 mb-10 animate-fade-in">
         <img 
           src={user.avatar} 
@@ -88,10 +86,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         </div>
       </div>
 
-      {/* Formulário Principal */}
       <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-6 md:p-8 shadow-2xl shadow-black/20 mb-10">
         <form onSubmit={handleGerar} className="space-y-6">
-          {/* Campo de Tema */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-300 ml-1">
               Qual o tema do seu vídeo? (Seja o mais detalhado possível)
@@ -104,19 +100,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-2xl py-4 px-5 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all min-h-[120px] resize-none group-hover:border-slate-600"
                 required
               />
-              <div className="absolute right-4 bottom-4 text-slate-500 text-xs">
-                {tema.length} caracteres
-              </div>
             </div>
           </div>
 
-          {/* Seleção de Plataforma */}
           <div className="space-y-3">
             <label className="text-sm font-medium text-slate-300 ml-1">Escolha a Plataforma</label>
             <div className="grid grid-cols-3 gap-3 md:gap-4">
               {[
                 { id: 'tiktok', icon: Video, label: 'TikTok', color: 'hover:bg-pink-500/10 hover:border-pink-500/50 text-pink-500' },
-                { id: 'instagram', icon: Instagram, label: 'Instagram', color: 'hover:bg-purple-500/10 hover:border-purple-500/50 text-purple-500' },
+                { id: 'instagram', icon: InstagramIcon, label: 'Instagram', color: 'hover:bg-purple-500/10 hover:border-purple-500/50 text-purple-500' },
                 { id: 'youtube', icon: Youtube, label: 'YouTube', color: 'hover:bg-red-500/10 hover:border-red-500/50 text-red-500' },
               ].map((item) => (
                 <button
@@ -136,7 +128,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             </div>
           </div>
 
-          {/* Botão Gerar */}
           <button
             type="submit"
             disabled={loading || !tema.trim()}
@@ -149,7 +140,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             {loading ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                Analisando tendências e criando roteiro...
+                Analisando tendências...
               </>
             ) : (
               <>
@@ -161,15 +152,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         </form>
       </div>
 
-      {/* Área de Erro */}
       {erro && (
-        <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-4 rounded-2xl flex items-center gap-3 mb-8 animate-shake">
+        <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-4 rounded-2xl flex items-center gap-3 mb-8">
           <AlertCircle className="w-5 h-5 shrink-0" />
           <p className="text-sm">{erro}</p>
         </div>
       )}
 
-      {/* Área de Resultado */}
       {resultado && (
         <div id="resultado" className="space-y-8 animate-fade-in pb-20">
           <div className="flex items-center justify-between">
@@ -177,16 +166,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               <Zap className="w-5 h-5 text-yellow-400" />
               Seu Conteúdo Gerado
             </h2>
-            <button 
-              onClick={() => window.print()}
-              className="text-xs font-medium text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20 transition-colors"
-            >
-              Salvar como PDF
-            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Título e Descrição */}
             <div className="md:col-span-2 space-y-6">
               <div className="bg-slate-800/50 border border-slate-700/50 rounded-3xl p-6 space-y-4">
                 <div>
@@ -195,19 +177,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 </div>
                 <div className="h-px bg-slate-700/50 w-full" />
                 <div>
-                  <label className="text-[10px] uppercase tracking-widest font-bold text-indigo-400 mb-2 block">Descrição / Legenda</label>
+                  <label className="text-[10px] uppercase tracking-widest font-bold text-indigo-400 mb-2 block">Descrição</label>
                   <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{resultado.descricao}</p>
                 </div>
                 <div className="flex flex-wrap gap-2 pt-2">
                   {resultado.hashtags.map((tag, i) => (
-                    <span key={i} className="text-xs font-medium text-indigo-400 bg-indigo-500/5 px-2 py-1 rounded-md">
-                      #{tag}
-                    </span>
+                    <span key={i} className="text-xs font-medium text-indigo-400 bg-indigo-500/5 px-2 py-1 rounded-md">#{tag}</span>
                   ))}
                 </div>
               </div>
 
-              {/* Roteiro */}
               <div className="bg-slate-800/50 border border-slate-700/50 rounded-3xl p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Layout className="w-4 h-4 text-indigo-400" />
@@ -219,34 +198,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               </div>
             </div>
 
-            {/* Sidebar de Dicas e Tendências */}
             <div className="space-y-6">
-              {/* Tendências Identificadas */}
               <div className="bg-gradient-to-br from-indigo-600/20 to-purple-600/20 border border-indigo-500/30 rounded-3xl p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Target className="w-4 h-4 text-indigo-400" />
-                  <label className="text-[10px] uppercase tracking-widest font-bold text-indigo-400">Por que isso vai viralizar?</label>
+                  <label className="text-[10px] uppercase tracking-widest font-bold text-indigo-400">Por que viraliza?</label>
                 </div>
                 <ul className="space-y-3">
                   {resultado.tendencias.map((item, i) => (
                     <li key={i} className="flex gap-2 text-xs text-slate-300">
                       <div className="w-1 h-1 bg-indigo-500 rounded-full mt-1.5 shrink-0" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Dicas de Edição */}
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-3xl p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Share2 className="w-4 h-4 text-indigo-400" />
-                  <label className="text-[10px] uppercase tracking-widest font-bold text-indigo-400">Dicas de Edição</label>
-                </div>
-                <ul className="space-y-3">
-                  {resultado.ideiasEdicao.map((item, i) => (
-                    <li key={i} className="flex gap-2 text-xs text-slate-300">
-                      <Zap className="w-3 h-3 text-yellow-500 shrink-0 mt-0.5" />
                       {item}
                     </li>
                   ))}
