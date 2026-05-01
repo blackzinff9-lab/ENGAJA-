@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { 
   Send, 
-  Youtube, 
+  Play, 
   Smartphone, 
-  Video,
+  Film,
   Sparkles,
   Layout,
   Clock,
@@ -111,9 +111,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             <label className="text-sm font-medium text-slate-300 ml-1">Escolha a Plataforma</label>
             <div className="grid grid-cols-3 gap-3 md:gap-4">
               {[
-                { id: 'tiktok', icon: Video, label: 'TikTok', color: 'hover:bg-pink-500/10 hover:border-pink-500/50 text-pink-500' },
+                { id: 'tiktok', icon: Film, label: 'TikTok', color: 'hover:bg-pink-500/10 hover:border-pink-500/50 text-pink-500' },
                 { id: 'instagram', icon: Smartphone, label: 'Instagram', color: 'hover:bg-purple-500/10 hover:border-purple-500/50 text-purple-500' },
-                { id: 'youtube', icon: Youtube, label: 'YouTube', color: 'hover:bg-red-500/10 hover:border-red-500/50 text-red-500' },
+                { id: 'youtube', icon: Play, label: 'YouTube', color: 'hover:bg-red-500/10 hover:border-red-500/50 text-red-500' },
               ].map((item) => (
                 <button
                   key={item.id}
@@ -234,4 +234,4 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 };
 
 export default Dashboard;
-
+              
