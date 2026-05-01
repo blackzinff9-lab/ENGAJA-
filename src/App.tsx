@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Dashboard from './Dashboard';
 import { Platform } from './types';
-import { StatusBackend } from './api'; // ajuste o caminho conforme seu projeto
+import { StatusBackend } from './api';
 import { 
   Zap, 
   Sparkles, 
@@ -16,13 +16,12 @@ function App() {
   const [carregando, setCarregando] = useState(false);
   const [backendOk, setBackendOk] = useState(false);
   const [statusBackend, setStatusBackend] = useState<StatusBackend | null>(null);
+  const [conteudoGerado, setConteudoGerado] = useState<any>(null); // estado para o conteúdo
 
-  // Simula verificação dos serviços ao montar a página
   useEffect(() => {
     const verificarServicos = async () => {
       try {
-        // Substitua pelas suas chamadas reais de verificação
-        const resposta = await fetch('/api/status'); // endpoint que você criará no backend
+        const resposta = await fetch('/api/status');
         const dados = await resposta.json();
         setStatusBackend(dados);
         setBackendOk(dados?.groq_configurado && dados?.youtube_configurado && dados?.trends_mcp_configurado);
@@ -36,6 +35,7 @@ function App() {
 
   const aoGerar = async (tema: string, plataforma: Platform) => {
     setCarregando(true);
+    setConteudoGerado(null); // limpa resultado anterior
     try {
       const resposta = await fetch('/api/gerar', {
         method: 'POST',
@@ -43,10 +43,7 @@ function App() {
         body: JSON.stringify({ tema, plataforma }),
       });
       const resultado = await resposta.json();
-      // Aqui você pode armazenar o resultado em um estado para exibir no Dashboard
-      // Ex.: setConteudoGerado(resultado);
-      alert('Conteúdo gerado! Confira no console ou em um componente de resultado.');
-      console.log(resultado);
+      setConteudoGerado(resultado); // armazena o resultado
     } catch (erro) {
       alert('Erro ao gerar conteúdo. Tente novamente.');
     } finally {
@@ -133,12 +130,13 @@ function App() {
             </div>
           </section>
 
-          {/* Dashboard que contém o formulário */}
+          {/* Dashboard com formulário e resultado */}
           <Dashboard 
             aoGerar={aoGerar}
             carregando={carregando}
             backendOk={backendOk}
             statusBackend={statusBackend}
+            conteudoGerado={conteudoGerado}
           />
         </div>
       </main>
