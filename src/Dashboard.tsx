@@ -1,49 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Send, 
-  Play, 
+  Video, 
   Smartphone, 
-  Film,
-  Sparkles,
-  Layout,
-  Clock,
-  Zap,
-  Target,
+  Play, 
+  Sparkles, 
+  Layout, 
+  Zap, 
+  Target, 
+  AlertCircle, 
+  Loader2,
+  Copy,
+  CheckCircle,
   Share2,
-  AlertCircle,
-  Loader2
+  Bookmark,
+  Clock,
+  TrendingUp,
+  Lightbulb
 } from 'lucide-react';
 
 interface DashboardProps {
-  user: {
-    nome: string;
-    avatar: string;
-  };
-}
-
-interface GeneratedContent {
-  titulo: string;
-  descricao: string;
-  hashtags: string[];
-  roteiro: string;
-  ideiasEdicao: string[];
-  tendencias: string[];
-  plataforma: string;
-  tema: string;
-  fonteTendencias: string;
+  user: { nome: string; avatar: string; };
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [tema, setTema] = useState('');
   const [plataforma, setPlataforma] = useState<'tiktok' | 'instagram' | 'youtube'>('tiktok');
   const [loading, setLoading] = useState(false);
-  const [resultado, setResultado] = useState<GeneratedContent | null>(null);
+  const [resultado, setResultado] = useState<any>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const resultRef = useRef<HTMLDivElement>(null);
 
   const handleGerar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tema.trim()) return;
-
     setLoading(true);
     setErro(null);
     
@@ -53,18 +44,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tema, plataforma }),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Erro ao gerar conteúdo');
-      }
-
       const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'Erro ao gerar conteúdo');
       setResultado(data);
-      
-      setTimeout(() => {
-        document.getElementById('resultado')?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch (err: any) {
       setErro(err.message);
     } finally {
@@ -72,166 +55,132 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     }
   };
 
+  const copyToClipboard = () => {
+    const text = `${resultado.titulo}\n\n${resultado.roteiro || resultado.descricao}`;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Header de Boas-vindas */}
-      <div className="flex items-center gap-4 mb-10 animate-fade-in">
-        <img 
-          src={user.avatar} 
-          alt={user.nome} 
-          className="w-16 h-16 rounded-full border-2 border-indigo-500 p-0.5 shadow-lg shadow-indigo-500/20"
-        />
-        <div>
-          <h1 className="text-2xl font-bold text-white">Olá, {user.nome.split(' ')[0]}! 👋</h1>
-          <p className="text-slate-400">O que vamos criar de viral hoje?</p>
+    <div className="max-w-5xl mx-auto px-4 pb-20">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-12 bg-slate-800/30 p-6 rounded-3xl border border-slate-700/50">
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <img src={user.avatar} className="w-16 h-16 rounded-2xl border-2 border-indigo-500/50 object-cover" alt={user.nome} />
+            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-2 border-[#0f172a] rounded-full" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white tracking-tight">Painel Criativo</h2>
+            <p className="text-slate-400 text-sm">Bem-vindo de volta, {user.nome.split(' ')[0]}</p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <div className="px-4 py-2 bg-slate-900/50 rounded-xl border border-slate-700/50 flex items-center gap-2">
+            <Zap className="w-4 h-4 text-yellow-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Pro Plan</span>
+          </div>
         </div>
       </div>
 
-      {/* Formulário Principal */}
-      <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-6 md:p-8 shadow-2xl shadow-black/20 mb-10">
-        <form onSubmit={handleGerar} className="space-y-6">
-          {/* Campo de Tema */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-300 ml-1">
-              Qual o tema do seu vídeo? (Seja o mais detalhado possível)
-            </label>
-            <div className="relative group">
-              <textarea
-                value={tema}
-                onChange={(e) => setTema(e.target.value)}
-                placeholder="Ex: Um vídeo curto de culinária sobre como fazer um bolo de chocolate fofinho passo a passo..."
-                className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-2xl py-4 px-5 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all min-h-[120px] resize-none group-hover:border-slate-600"
-                required
-              />
+      <div className="bg-slate-800/40 backdrop-blur-xl border border-slate-700/50 rounded-[3rem] p-8 md:p-12 shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/5 rounded-full blur-3xl -mr-32 -mt-32" />
+        
+        <form onSubmit={handleGerar} className="relative z-10 space-y-10">
+          <div className="space-y-4">
+            <div className="flex justify-between items-end px-1">
+              <label className="text-sm font-bold text-slate-200 uppercase tracking-widest">O que vamos criar?</label>
+              <span className="text-xs text-slate-500 font-medium">{tema.length}/500</span>
             </div>
+            <textarea
+              value={tema}
+              onChange={(e) => setTema(e.target.value.slice(0, 500))}
+              placeholder="Descreva sua ideia em detalhes para um roteiro mais preciso..."
+              className="w-full bg-slate-900/80 border border-slate-700/50 text-white rounded-[2rem] p-6 focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all min-h-[180px] text-lg font-light leading-relaxed"
+              required
+            />
           </div>
 
-          {/* Seleção de Plataforma */}
-          <div className="space-y-3">
-            <label className="text-sm font-medium text-slate-300 ml-1">Escolha a Plataforma</label>
-            <div className="grid grid-cols-3 gap-3 md:gap-4">
-              {[
-                { id: 'tiktok', icon: Film, label: 'TikTok', color: 'hover:bg-pink-500/10 hover:border-pink-500/50 text-pink-500' },
-                { id: 'instagram', icon: Smartphone, label: 'Instagram', color: 'hover:bg-purple-500/10 hover:border-purple-500/50 text-purple-500' },
-                { id: 'youtube', icon: Play, label: 'YouTube', color: 'hover:bg-red-500/10 hover:border-red-500/50 text-red-500' },
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setPlataforma(item.id as any)}
-                  className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${
-                    plataforma === item.id 
-                      ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400' 
-                      : `bg-slate-900/30 border-slate-700/50 text-slate-400 ${item.color}`
-                  }`}
-                >
-                  <item.icon className="w-6 h-6" />
-                  <span className="text-xs font-semibold uppercase tracking-wider">{item.label}</span>
-                </button>
-              ))}
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              { id: 'tiktok', icon: Video, label: 'TikTok Viral', desc: 'Foco em Retenção' },
+              { id: 'instagram', icon: Smartphone, label: 'Instagram Reels', desc: 'Foco em Estética' },
+              { id: 'youtube', icon: Play, label: 'YouTube Shorts', desc: 'Foco em SEO' },
+            ].map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setPlataforma(item.id as any)}
+                className={`flex flex-col items-start gap-1 p-6 rounded-3xl border text-left transition-all duration-300 ${
+                  plataforma === item.id 
+                    ? 'bg-indigo-600/20 border-indigo-500 shadow-lg shadow-indigo-500/10' 
+                    : 'bg-slate-900/40 border-slate-700/50 text-slate-400 hover:bg-slate-800/60'
+                }`}
+              >
+                <item.icon className={`w-6 h-6 mb-2 ${plataforma === item.id ? 'text-indigo-400' : 'text-slate-500'}`} />
+                <span className={`text-sm font-bold ${plataforma === item.id ? 'text-white' : ''}`}>{item.label}</span>
+                <span className="text-[10px] uppercase tracking-tighter opacity-60">{item.desc}</span>
+              </button>
+            ))}
           </div>
 
-          {/* Botão Gerar */}
           <button
             type="submit"
-            disabled={loading || !tema.trim()}
-            className={`w-full py-4 rounded-2xl font-bold text-white flex items-center justify-center gap-3 transition-all transform active:scale-[0.98] ${
-              loading 
-                ? 'bg-slate-700 cursor-not-allowed' 
-                : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40'
-            }`}
+            disabled={loading}
+            className="w-full py-6 rounded-3xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 font-black text-white text-lg shadow-xl shadow-indigo-500/25 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-4"
           >
-            {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Analisando tendências...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-5 h-5" />
-                Gerar Conteúdo Viral
-              </>
-            )}
+            {loading ? <Loader2 className="animate-spin w-6 h-6" /> : <Sparkles className="w-6 h-6" />}
+            {loading ? 'PROCESSANDO TENDÊNCIAS...' : 'GERAR CONTEÚDO AGORA'}
           </button>
         </form>
       </div>
 
-      {/* Área de Erro */}
-      {erro && (
-        <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-4 rounded-2xl flex items-center gap-3 mb-8 animate-shake">
-          <AlertCircle className="w-5 h-5 shrink-0" />
-          <p className="text-sm">{erro}</p>
-        </div>
-      )}
-
-      {/* Área de Resultado */}
-      {resultado && (
-        <div id="resultado" className="space-y-8 animate-fade-in pb-20">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <Zap className="w-5 h-5 text-yellow-400" />
-              Seu Conteúdo Gerado
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Título e Descrição */}
-            <div className="md:col-span-2 space-y-6">
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-3xl p-6 space-y-4">
-                <div>
-                  <label className="text-[10px] uppercase tracking-widest font-bold text-indigo-400 mb-2 block">Título Sugerido</label>
-                  <h3 className="text-xl font-bold text-white leading-tight">{resultado.titulo}</h3>
+      <div ref={resultRef}>
+        {resultado && (
+          <div className="mt-16 space-y-8 animate-slide-up">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="md:col-span-2 bg-slate-800/40 border border-slate-700/50 rounded-[2.5rem] p-10">
+                <div className="flex justify-between items-start mb-8">
+                  <div>
+                    <h3 className="text-indigo-400 text-xs font-black uppercase tracking-[0.3em] mb-3">Título Sugerido</h3>
+                    <p className="text-3xl font-extrabold text-white leading-tight tracking-tight">{resultado.titulo}</p>
+                  </div>
+                  <button onClick={copyToClipboard} className="p-3 bg-slate-700/30 hover:bg-slate-700/60 rounded-2xl transition-colors">
+                    {copied ? <CheckCircle className="w-5 h-5 text-emerald-400" /> : <Copy className="w-5 h-5 text-slate-400" />}
+                  </button>
                 </div>
-                <div className="h-px bg-slate-700/50 w-full" />
-                <div>
-                  <label className="text-[10px] uppercase tracking-widest font-bold text-indigo-400 mb-2 block">Descrição</label>
-                  <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{resultado.descricao}</p>
-                </div>
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {resultado.hashtags.map((tag, i) => (
-                    <span key={i} className="text-xs font-medium text-indigo-400 bg-indigo-500/5 px-2 py-1 rounded-md">
-                      #{tag}
-                    </span>
-                  ))}
+                
+                <div className="h-px bg-gradient-to-r from-slate-700/50 via-transparent to-transparent mb-8" />
+                
+                <h3 className="text-indigo-400 text-xs font-black uppercase tracking-[0.3em] mb-4">Roteiro Completo</h3>
+                <div className="bg-slate-900/60 rounded-[2rem] p-8 border border-slate-700/30 font-mono text-slate-300 leading-relaxed text-sm">
+                  {resultado.roteiro || resultado.descricao}
                 </div>
               </div>
 
-              {/* Roteiro */}
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-3xl p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Layout className="w-4 h-4 text-indigo-400" />
-                  <label className="text-[10px] uppercase tracking-widest font-bold text-indigo-400">Roteiro Detalhado</label>
-                </div>
-                <div className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap font-mono bg-slate-900/50 p-4 rounded-xl border border-slate-700/30">
-                  {resultado.roteiro}
+              <div className="space-y-6">
+                <div className="bg-gradient-to-br from-indigo-600/20 to-purple-600/20 border border-indigo-500/20 rounded-[2.5rem] p-8">
+                  <div className="flex items-center gap-2 mb-6 text-indigo-400">
+                    <TrendingUp className="w-5 h-5" />
+                    <span className="text-xs font-black uppercase tracking-widest">Estratégia Viral</span>
+                  </div>
+                  <ul className="space-y-4">
+                    {['Hook de 3 segundos', 'Corte dinâmico', 'Legendas coloridas'].map((item, i) => (
+                      <li key={i} className="flex gap-3 text-sm text-slate-200">
+                        <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full mt-1.5 shrink-0 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             </div>
-
-            {/* Sidebar de Dicas e Tendências */}
-            <div className="space-y-6">
-              <div className="bg-gradient-to-br from-indigo-600/20 to-purple-600/20 border border-indigo-500/30 rounded-3xl p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Target className="w-4 h-4 text-indigo-400" />
-                  <label className="text-[10px] uppercase tracking-widest font-bold text-indigo-400">Por que viraliza?</label>
-                </div>
-                <ul className="space-y-3">
-                  {resultado.tendencias.map((item, i) => (
-                    <li key={i} className="flex gap-2 text-xs text-slate-300">
-                      <div className="w-1 h-1 bg-indigo-500 rounded-full mt-1.5 shrink-0" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
 
 export default Dashboard;
-              
+                    
