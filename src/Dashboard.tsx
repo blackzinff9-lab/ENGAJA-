@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Send, 
   Youtube, 
-  Camera, 
+  Smartphone, 
   Video,
   Sparkles,
   Layout,
@@ -112,7 +112,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             <div className="grid grid-cols-3 gap-3 md:gap-4">
               {[
                 { id: 'tiktok', icon: Video, label: 'TikTok', color: 'hover:bg-pink-500/10 hover:border-pink-500/50 text-pink-500' },
-                { id: 'instagram', icon: Camera, label: 'Instagram', color: 'hover:bg-purple-500/10 hover:border-purple-500/50 text-purple-500' },
+                { id: 'instagram', icon: Smartphone, label: 'Instagram', color: 'hover:bg-purple-500/10 hover:border-purple-500/50 text-purple-500' },
                 { id: 'youtube', icon: Youtube, label: 'YouTube', color: 'hover:bg-red-500/10 hover:border-red-500/50 text-red-500' },
               ].map((item) => (
                 <button
@@ -234,3 +234,4 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 };
 
 export default Dashboard;
+
