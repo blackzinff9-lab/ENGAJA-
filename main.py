@@ -436,13 +436,45 @@ async def status():
 # SERVIR FRONTEND (produção)
 # ==========================================
 
-# COPIE E COLE ISSO NO LUGAR:
-frontend_path = os.path.join(os.path.dirname(__file__), "dist")
+# ==========================================
+# SERVIR FRONTEND (Versão Ultra Compatível)
+# ==========================================
 
-# Só monta a pasta assets se ela realmente existir para não quebrar o servidor
-assets_path = os.path.join(frontend_path, "assets")
-if os.path.exists(assets_path):
-    app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
+# Tenta encontrar a pasta 'dist' em vários lugares possíveis
+possiveis_caminhos = [
+    os.path.join(os.path.dirname(__file__), "dist"),
+    os.path.join(os.path.dirname(__file__), "..", "dist"),
+    "/opt/render/project/src/dist"
+]
+
+frontend_path = ""
+for caminho in possiveis_caminhos:
+    if os.path.exists(caminho):
+        frontend_path = caminho
+        break
+
+if frontend_path:
+    # Monta os assets se a pasta existir
+    assets_path = os.path.join(frontend_path, "assets")
+    if os.path.exists(assets_path):
+        app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        # Se o usuário tentar acessar algo da API, não faz nada aqui
+        if full_path.startswith("api/"):
+             return None
+             
+        index_file = os.path.join(frontend_path, "index.html")
+        if os.path.exists(index_file):
+            return FileResponse(index_file)
+        
+        return {"erro": "index.html nao encontrado", "caminho_tentado": index_file}
+else:
+    @app.get("/")
+    async def erro_dist():
+        return {"erro": "Pasta dist nao encontrada no servidor"}
+        
     
 
     @app.get("/{full_path:path}")
