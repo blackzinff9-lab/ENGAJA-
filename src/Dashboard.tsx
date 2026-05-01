@@ -1,250 +1,263 @@
-import { useState } from 'react';
-import { Sparkles, ArrowRight, Loader2, Lightbulb, Target, TrendingUp, Server } from 'lucide-react';
-import { Platform } from './types';
-import { PLATFORM_CONFIG } from './types';
-import { StatusBackend } from './api';
-
-
+import React, { useState } from 'react';
+import { 
+  Send, 
+  Youtube, 
+  Instagram, 
+  Video,
+  Sparkles,
+  Layout,
+  Clock,
+  Zap,
+  Target,
+  Share2,
+  AlertCircle,
+  Loader2
+} from 'lucide-react';
 
 interface DashboardProps {
-  aoGerar: (tema: string, plataforma: Platform) => void;
-  carregando: boolean;
-  backendOk: boolean;
-  statusBackend: StatusBackend | null;
+  user: {
+    nome: string;
+    avatar: string;
+  };
 }
 
-const sugestoesTemas = [
-  { emoji: '🍳', rotulo: 'Receitas veganas', valor: 'receitas veganas' },
-  { emoji: '💪', rotulo: 'Treino HIIT', valor: 'treino HIIT em casa' },
-  { emoji: '💻', rotulo: 'Dicas de programação', valor: 'dicas de programação' },
-  { emoji: '✈️', rotulo: 'Viagem econômica', valor: 'viagem econômica' },
-  { emoji: '🎨', rotulo: 'Design gráfico', valor: 'design gráfico para iniciantes' },
-  { emoji: '💰', rotulo: 'Renda extra', valor: 'como ganhar renda extra online' },
-  { emoji: '📱', rotulo: 'Review de apps', valor: 'review de apps úteis' },
-  { emoji: '🎮', rotulo: 'Dicas de games', valor: 'dicas de jogos mobile' },
-];
+interface GeneratedContent {
+  titulo: string;
+  descricao: string;
+  hashtags: string[];
+  roteiro: string;
+  ideiasEdicao: string[];
+  tendencias: string[];
+  plataforma: string;
+  tema: string;
+  fonteTendencias: string;
+}
 
-export default function Dashboard({ aoGerar, carregando, backendOk, statusBackend }: DashboardProps) {
+const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [tema, setTema] = useState('');
-  const [plataforma, setPlataforma] = useState<Platform | null>(null);
-  const [focado, setFocado] = useState(false);
+  const [plataforma, setPlataforma] = useState<'tiktok' | 'instagram' | 'youtube'>('tiktok');
+  const [loading, setLoading] = useState(false);
+  const [resultado, setResultado] = useState<GeneratedContent | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
 
-  const aoEnviar = (e: React.FormEvent) => {
+  const handleGerar = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (tema.trim() && plataforma) {
-      aoGerar(tema.trim(), plataforma);
+    if (!tema.trim()) return;
+
+    setLoading(true);
+    setErro(null);
+    
+    try {
+      const response = await fetch('/api/gerar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tema, plataforma }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Erro ao gerar conteúdo');
+      }
+
+      const data = await response.json();
+      setResultado(data);
+      
+      // Scroll suave para o resultado
+      setTimeout(() => {
+        document.getElementById('resultado')?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    } catch (err: any) {
+      setErro(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const podeEnviar = tema.trim().length >= 3 && plataforma !== null;
-
-  // Texto informativo sobre serviços disponíveis
-  const servicosTexto = statusBackend
-    ? [
-        statusBackend.groq_configurado && '✅ IA Groq',
-        statusBackend.youtube_configurado ? '✅ YouTube API' : '⚪ YouTube API (não configurada)',
-        statusBackend.trends_mcp_configurado ? '✅ Trends MCP' : '⚪ Trends MCP (não configurado)',
-      ].filter(Boolean).join('   ·   ')
-    : 'Verificando serviços...';
-
   return (
-    <div className="min-h-[calc(100vh-64px)] flex flex-col items-center justify-center p-4 noise-bg relative">
-      {/* Fundo decorativo */}
-      <div className="absolute top-20 left-1/4 w-80 h-80 bg-indigo-600/15 rounded-full blur-[120px]"></div>
-      <div className="absolute bottom-20 right-1/4 w-80 h-80 bg-purple-600/15 rounded-full blur-[120px]"></div>
-
-      <div className="relative z-10 w-full max-w-2xl">
-        {/* Texto hero */}
-        <div className="text-center mb-10 animate-slide-up">
-          <div className="inline-flex items-center gap-2 glass-light rounded-full px-4 py-1.5 mb-6 text-xs text-white/50">
-            <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
-            <span>Tendências reais • IA real • Resultados profissionais</span>
-          </div>
-          <h2 className="text-3xl sm:text-4xl font-black mb-3 tracking-tight">
-            Crie conteúdo{' '}
-            <span className="gradient-text">viral</span>{' '}
-            em segundos
-          </h2>
-          <p className="text-white/40 text-sm sm:text-base max-w-md mx-auto">
-            Digite o tema do seu vídeo, escolha a plataforma e deixe a IA criar tudo pra você
-          </p>
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      {/* Header de Boas-vindas */}
+      <div className="flex items-center gap-4 mb-10 animate-fade-in">
+        <img 
+          src={user.avatar} 
+          alt={user.nome} 
+          className="w-16 h-16 rounded-full border-2 border-indigo-500 p-0.5 shadow-lg shadow-indigo-500/20"
+        />
+        <div>
+          <h1 className="text-2xl font-bold text-white">Olá, {user.nome.split(' ')[0]}! 👋</h1>
+          <p className="text-slate-400">O que vamos criar de viral hoje?</p>
         </div>
+      </div>
 
-        {/* Aviso se backend não está configurado */}
-        {!backendOk && (
-          <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 animate-slide-up">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">⚠️</span>
-              <div>
-                <p className="text-sm font-semibold text-amber-300">Servidor em configuração</p>
-                <p className="text-xs text-amber-200/60">
-                  O backend precisa estar rodando com a GROQ_API_KEY configurada. Se você é o administrador, verifique as variáveis de ambiente no servidor.
-                </p>
+      {/* Formulário Principal */}
+      <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-6 md:p-8 shadow-2xl shadow-black/20 mb-10">
+        <form onSubmit={handleGerar} className="space-y-6">
+          {/* Campo de Tema */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-300 ml-1">
+              Qual o tema do seu vídeo? (Seja o mais detalhado possível)
+            </label>
+            <div className="relative group">
+              <textarea
+                value={tema}
+                onChange={(e) => setTema(e.target.value)}
+                placeholder="Ex: Um vídeo curto de culinária sobre como fazer um bolo de chocolate fofinho passo a passo..."
+                className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-2xl py-4 px-5 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all min-h-[120px] resize-none group-hover:border-slate-600"
+                required
+              />
+              <div className="absolute right-4 bottom-4 text-slate-500 text-xs">
+                {tema.length} caracteres
               </div>
             </div>
           </div>
-        )}
 
-        {/* Serviços disponíveis */}
-        <div className="mb-6 p-3 rounded-xl glass-light animate-slide-up" style={{ animationDelay: '0.05s' }}>
-          <div className="flex items-center gap-2 text-xs text-white/30">
-            <Server className="w-3.5 h-3.5 text-purple-400/50" />
-            <span>{servicosTexto}</span>
-          </div>
-        </div>
-
-        {/* Formulário principal */}
-        <form onSubmit={aoEnviar} className="space-y-6 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          {/* Campo de tema */}
-          <div className="relative">
-            <label className="block text-sm font-medium text-white/60 mb-2">
-              <Target className="w-4 h-4 inline mr-1.5 text-purple-400" />
-              Qual o tema do seu vídeo?
-            </label>
-            <div className={`relative rounded-2xl transition-all duration-300 ${focado ? 'ring-2 ring-purple-500/50' : ''}`}>
-              <input
-                type="text"
-                value={tema}
-                onChange={(e) => setTema(e.target.value)}
-                onFocus={() => setFocado(true)}
-                onBlur={() => setFocado(false)}
-                placeholder="Ex: receitas veganas, dicas de finanças, review de iPhone..."
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white placeholder-white/25 text-base focus:outline-none focus:border-purple-500/50 transition-all"
-                disabled={carregando}
-                maxLength={200}
-              />
-              {tema && (
+          {/* Seleção de Plataforma */}
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-slate-300 ml-1">Escolha a Plataforma</label>
+            <div className="grid grid-cols-3 gap-3 md:gap-4">
+              {[
+                { id: 'tiktok', icon: Video, label: 'TikTok', color: 'hover:bg-pink-500/10 hover:border-pink-500/50 text-pink-500' },
+                { id: 'instagram', icon: Instagram, label: 'Instagram', color: 'hover:bg-purple-500/10 hover:border-purple-500/50 text-purple-500' },
+                { id: 'youtube', icon: Youtube, label: 'YouTube', color: 'hover:bg-red-500/10 hover:border-red-500/50 text-red-500' },
+              ].map((item) => (
                 <button
+                  key={item.id}
                   type="button"
-                  onClick={() => setTema('')}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 text-sm transition-colors"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-            <div className="flex justify-between mt-1.5">
-              <span className="text-[11px] text-white/20">Seja específico para melhores resultados</span>
-              <span className="text-[11px] text-white/20">{tema.length}/200</span>
-            </div>
-          </div>
-
-          {/* Sugestões de temas */}
-          <div className="animate-slide-up" style={{ animationDelay: '0.15s' }}>
-            <div className="flex items-center gap-1.5 mb-3">
-              <Lightbulb className="w-3.5 h-3.5 text-yellow-400" />
-              <span className="text-xs text-white/40">Sugestões populares:</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {sugestoesTemas.map((sugestao, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setTema(sugestao.valor)}
-                  disabled={carregando}
-                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition-all duration-200 ${
-                    tema === sugestao.valor
-                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                      : 'glass-light text-white/40 hover:text-white/60 hover:bg-white/5'
+                  onClick={() => setPlataforma(item.id as any)}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${
+                    plataforma === item.id 
+                      ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400' 
+                      : `bg-slate-900/30 border-slate-700/50 text-slate-400 ${item.color}`
                   }`}
                 >
-                  <span>{sugestao.emoji}</span>
-                  <span>{sugestao.rotulo}</span>
+                  <item.icon className="w-6 h-6" />
+                  <span className="text-xs font-semibold uppercase tracking-wider">{item.label}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Seletor de plataforma */}
-          <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
-            <label className="block text-sm font-medium text-white/60 mb-3">
-              <span className="inline-flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-purple-400" />
-                Escolha a plataforma
-              </span>
-            </label>
-            <div className="grid grid-cols-3 gap-3">
-              {(Object.keys(PLATFORM_CONFIG) as Platform[]).map((chave) => {
-                const info = PLATFORM_CONFIG[chave];
-                const selecionada = plataforma === chave;
-                return (
-                  <button
-                    key={chave}
-                    type="button"
-                    onClick={() => setPlataforma(chave)}
-                    disabled={carregando}
-                    className={`relative rounded-2xl p-4 text-center transition-all duration-300 group ${
-                      selecionada
-                        ? `${info.bgClasse} border-2 ${info.bordaClasse} scale-[1.02] shadow-lg`
-                        : 'glass-light border border-white/5 hover:border-white/15 hover:bg-white/5'
-                    }`}
-                  >
-                    {selecionada && (
-                      <div className={`absolute top-2 right-2 w-2 h-2 rounded-full bg-gradient-to-r ${info.gradiente}`}></div>
-                    )}
-                    <div className="text-2xl mb-2 group-hover:scale-110 transition-transform duration-300">
-                      {info.icone}
-                    </div>
-                    <div className={`text-sm font-bold transition-colors ${
-                      selecionada ? info.textoClasse : 'text-white/60 group-hover:text-white/80'
-                    }`}>
-                      {info.nome}
-                    </div>
-                    <div className={`text-[10px] mt-1 ${selecionada ? 'text-white/50' : 'text-white/25'}`}>
-                      {info.descricao}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          {/* Botão Gerar */}
+          <button
+            type="submit"
+            disabled={loading || !tema.trim()}
+            className={`w-full py-4 rounded-2xl font-bold text-white flex items-center justify-center gap-3 transition-all transform active:scale-[0.98] ${
+              loading 
+                ? 'bg-slate-700 cursor-not-allowed' 
+                : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40'
+            }`}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Analisando tendências e criando roteiro...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-5 h-5" />
+                Gerar Conteúdo Viral
+              </>
+            )}
+          </button>
+        </form>
+      </div>
 
-          {/* Botão enviar */}
-          <div className="animate-slide-up" style={{ animationDelay: '0.25s' }}>
-            <button
-              type="submit"
-              disabled={!podeEnviar || carregando || !backendOk}
-              className={`w-full py-4 px-6 rounded-2xl font-bold text-base flex items-center justify-center gap-3 transition-all duration-300 ${
-                podeEnviar && !carregando && backendOk
-                  ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.01] active:scale-[0.99]'
-                  : 'bg-white/5 text-white/20 cursor-not-allowed'
-              }`}
+      {/* Área de Erro */}
+      {erro && (
+        <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-4 rounded-2xl flex items-center gap-3 mb-8 animate-shake">
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          <p className="text-sm">{erro}</p>
+        </div>
+      )}
+
+      {/* Área de Resultado */}
+      {resultado && (
+        <div id="resultado" className="space-y-8 animate-fade-in pb-20">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <Zap className="w-5 h-5 text-yellow-400" />
+              Seu Conteúdo Gerado
+            </h2>
+            <button 
+              onClick={() => window.print()}
+              className="text-xs font-medium text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20 transition-colors"
             >
-              {carregando ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Gerando conteúdo...</span>
-                </>
-              ) : !backendOk ? (
-                <>
-                  <span>⚠️ Servidor em configuração</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-5 h-5" />
-                  <span>Gerar Conteúdo</span>
-                  <ArrowRight className="w-5 h-5" />
-                </>
-              )}
+              Salvar como PDF
             </button>
           </div>
-        </form>
 
-        {/* Cards de info */}
-        <div className="grid grid-cols-3 gap-3 mt-10 animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          {[
-            { icone: '🔍', rotulo: 'APIs Reais', desc: 'YouTube + Trends MCP' },
-            { icone: '🤖', rotulo: 'IA Groq', desc: 'Llama 4 Scout 17B' },
-            { icone: '⚡', rotulo: 'Rápido', desc: 'Resposta em segundos' },
-          ].map((item, i) => (
-            <div key={i} className="glass-light rounded-xl p-3 text-center">
-              <div className="text-lg mb-1">{item.icone}</div>
-              <div className="text-[11px] font-semibold text-white/60">{item.rotulo}</div>
-              <div className="text-[10px] text-white/25">{item.desc}</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Título e Descrição */}
+            <div className="md:col-span-2 space-y-6">
+              <div className="bg-slate-800/50 border border-slate-700/50 rounded-3xl p-6 space-y-4">
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest font-bold text-indigo-400 mb-2 block">Título Sugerido</label>
+                  <h3 className="text-xl font-bold text-white leading-tight">{resultado.titulo}</h3>
+                </div>
+                <div className="h-px bg-slate-700/50 w-full" />
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest font-bold text-indigo-400 mb-2 block">Descrição / Legenda</label>
+                  <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{resultado.descricao}</p>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {resultado.hashtags.map((tag, i) => (
+                    <span key={i} className="text-xs font-medium text-indigo-400 bg-indigo-500/5 px-2 py-1 rounded-md">
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Roteiro */}
+              <div className="bg-slate-800/50 border border-slate-700/50 rounded-3xl p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Layout className="w-4 h-4 text-indigo-400" />
+                  <label className="text-[10px] uppercase tracking-widest font-bold text-indigo-400">Roteiro Detalhado</label>
+                </div>
+                <div className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap font-mono bg-slate-900/50 p-4 rounded-xl border border-slate-700/30">
+                  {resultado.roteiro}
+                </div>
+              </div>
             </div>
-          ))}
+
+            {/* Sidebar de Dicas e Tendências */}
+            <div className="space-y-6">
+              {/* Tendências Identificadas */}
+              <div className="bg-gradient-to-br from-indigo-600/20 to-purple-600/20 border border-indigo-500/30 rounded-3xl p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Target className="w-4 h-4 text-indigo-400" />
+                  <label className="text-[10px] uppercase tracking-widest font-bold text-indigo-400">Por que isso vai viralizar?</label>
+                </div>
+                <ul className="space-y-3">
+                  {resultado.tendencias.map((item, i) => (
+                    <li key={i} className="flex gap-2 text-xs text-slate-300">
+                      <div className="w-1 h-1 bg-indigo-500 rounded-full mt-1.5 shrink-0" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Dicas de Edição */}
+              <div className="bg-slate-800/50 border border-slate-700/50 rounded-3xl p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Share2 className="w-4 h-4 text-indigo-400" />
+                  <label className="text-[10px] uppercase tracking-widest font-bold text-indigo-400">Dicas de Edição</label>
+                </div>
+                <ul className="space-y-3">
+                  {resultado.ideiasEdicao.map((item, i) => (
+                    <li key={i} className="flex gap-2 text-xs text-slate-300">
+                      <Zap className="w-3 h-3 text-yellow-500 shrink-0 mt-0.5" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
-}
+};
+
+export default Dashboard;
