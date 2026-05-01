@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Send, 
   Youtube, 
-  Instagram as InstagramIcon, 
+  Camera, 
   Video,
   Sparkles,
   Layout,
@@ -74,6 +74,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
+      {/* Header de Boas-vindas */}
       <div className="flex items-center gap-4 mb-10 animate-fade-in">
         <img 
           src={user.avatar} 
@@ -86,8 +87,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         </div>
       </div>
 
+      {/* Formulário Principal */}
       <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-6 md:p-8 shadow-2xl shadow-black/20 mb-10">
         <form onSubmit={handleGerar} className="space-y-6">
+          {/* Campo de Tema */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-300 ml-1">
               Qual o tema do seu vídeo? (Seja o mais detalhado possível)
@@ -103,12 +106,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             </div>
           </div>
 
+          {/* Seleção de Plataforma */}
           <div className="space-y-3">
             <label className="text-sm font-medium text-slate-300 ml-1">Escolha a Plataforma</label>
             <div className="grid grid-cols-3 gap-3 md:gap-4">
               {[
                 { id: 'tiktok', icon: Video, label: 'TikTok', color: 'hover:bg-pink-500/10 hover:border-pink-500/50 text-pink-500' },
-                { id: 'instagram', icon: InstagramIcon, label: 'Instagram', color: 'hover:bg-purple-500/10 hover:border-purple-500/50 text-purple-500' },
+                { id: 'instagram', icon: Camera, label: 'Instagram', color: 'hover:bg-purple-500/10 hover:border-purple-500/50 text-purple-500' },
                 { id: 'youtube', icon: Youtube, label: 'YouTube', color: 'hover:bg-red-500/10 hover:border-red-500/50 text-red-500' },
               ].map((item) => (
                 <button
@@ -128,6 +132,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             </div>
           </div>
 
+          {/* Botão Gerar */}
           <button
             type="submit"
             disabled={loading || !tema.trim()}
@@ -152,13 +157,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         </form>
       </div>
 
+      {/* Área de Erro */}
       {erro && (
-        <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-4 rounded-2xl flex items-center gap-3 mb-8">
+        <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-4 rounded-2xl flex items-center gap-3 mb-8 animate-shake">
           <AlertCircle className="w-5 h-5 shrink-0" />
           <p className="text-sm">{erro}</p>
         </div>
       )}
 
+      {/* Área de Resultado */}
       {resultado && (
         <div id="resultado" className="space-y-8 animate-fade-in pb-20">
           <div className="flex items-center justify-between">
@@ -169,6 +176,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Título e Descrição */}
             <div className="md:col-span-2 space-y-6">
               <div className="bg-slate-800/50 border border-slate-700/50 rounded-3xl p-6 space-y-4">
                 <div>
@@ -182,11 +190,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 </div>
                 <div className="flex flex-wrap gap-2 pt-2">
                   {resultado.hashtags.map((tag, i) => (
-                    <span key={i} className="text-xs font-medium text-indigo-400 bg-indigo-500/5 px-2 py-1 rounded-md">#{tag}</span>
+                    <span key={i} className="text-xs font-medium text-indigo-400 bg-indigo-500/5 px-2 py-1 rounded-md">
+                      #{tag}
+                    </span>
                   ))}
                 </div>
               </div>
 
+              {/* Roteiro */}
               <div className="bg-slate-800/50 border border-slate-700/50 rounded-3xl p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Layout className="w-4 h-4 text-indigo-400" />
@@ -198,6 +209,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               </div>
             </div>
 
+            {/* Sidebar de Dicas e Tendências */}
             <div className="space-y-6">
               <div className="bg-gradient-to-br from-indigo-600/20 to-purple-600/20 border border-indigo-500/30 rounded-3xl p-6">
                 <div className="flex items-center gap-2 mb-4">
