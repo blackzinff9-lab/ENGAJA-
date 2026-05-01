@@ -436,12 +436,14 @@ async def status():
 # SERVIR FRONTEND (produção)
 # ==========================================
 
+# COPIE E COLE ISSO NO LUGAR:
 frontend_path = os.path.join(os.path.dirname(__file__), "dist")
-if not os.path.exists(frontend_path):
-    frontend_path = os.path.join(os.path.dirname(__file__), "..", "dist")
 
-if os.path.exists(frontend_path):
-    app.mount("/assets", StaticFiles(directory=os.path.join(frontend_path, "assets")), name="assets")
+# Só monta a pasta assets se ela realmente existir para não quebrar o servidor
+assets_path = os.path.join(frontend_path, "assets")
+if os.path.exists(assets_path):
+    app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
+    
 
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
