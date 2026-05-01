@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { 
-  Sparkles, ArrowRight, Loader2, Lightbulb, Target, TrendingUp, Server, 
-  Copy, CheckCircle, Video, Smartphone, Play, Share2, Layout, Zap 
+  Sparkles, ArrowRight, Loader2, Server, 
+  TrendingUp, Target 
 } from 'lucide-react';
 import { Platform, PLATFORM_CONFIG } from './types';
 import { StatusBackend } from './api';
@@ -24,7 +24,6 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
   const [tema, setTema] = useState('');
   const [plataforma, setPlataforma] = useState<Platform | null>(null);
   const [focado, setFocado] = useState(false);
-  const [copiado, setCopiado] = useState(false);
 
   const aoEnviar = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,25 +32,27 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
     }
   };
 
-  // Lógica para formatar os serviços ativos (como no seu print)
-  const serviçosTexto = statusBackend ? [
-    statusBackend.groq_configurado && '✅ IA Groq',
-    statusBackend.youtube_configurado && '✅ YouTube API',
-    statusBackend.trends_mcp_configurado && '✅ Trends MCP'
-  ].filter(Boolean).join('  •  ') : 'Verificando serviços...';
+  // Monta o texto de status sem acentos para evitar problemas
+  const servicosTexto = statusBackend
+    ? [
+        statusBackend.groq_configurado && '✅ IA Groq',
+        statusBackend.youtube_configurado && '✅ YouTube API',
+        statusBackend.trends_mcp_configurado && '✅ Trends MCP'
+      ].filter(Boolean).join('  •  ')
+    : 'Verificando serviços...';
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 noise-bg relative">
-      <div className="relative z-10 w-full max-w-5xl">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-950">
+      <div className="w-full max-w-2xl">
         
-        {/* Cabeçalho Hero */}
-        <div className="text-center mb-10 animate-slide-up">
-          <div className="inline-flex items-center gap-2 glass-light rounded-full px-4 py-1.5 mb-6 text-xs text-white/50">
+        {/* Cabeçalho */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 bg-white/5 rounded-full px-4 py-1.5 mb-4 text-xs text-white/50">
             <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
             <span>Tendências reais • IA real • Resultados profissionais</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-black mb-3 tracking-tight text-white">
-            Crie conteúdo <span className="gradient-text">viral</span> em segundos
+          <h2 className="text-3xl sm:text-4xl font-black mb-2 text-white">
+            Crie conteúdo <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">viral</span> em segundos
           </h2>
           <p className="text-white/40 text-sm max-w-md mx-auto">
             Digite o tema do seu vídeo, escolha a plataforma e deixe a IA criar tudo pra você
@@ -59,42 +60,42 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
         </div>
 
         {/* Status do Servidor */}
-        <div className="mb-6 p-3 rounded-xl glass-light animate-slide-up" style={{ animationDelay: '0.05s' }}>
-          <div className="flex items-center gap-3 text-xs text-white/30">
-            <Server className="w-3.5 h-3.5 text-purple-400/50" />
-            <span>{serviçosTexto}</span>
+        <div className="mb-6 p-3 rounded-xl bg-white/5 border border-white/10">
+          <div className="flex items-center gap-3 text-xs text-white/40">
+            <Server className="w-3.5 h-3.5 text-purple-400/70" />
+            <span>{servicosTexto}</span>
           </div>
         </div>
 
-        {/* Formulário Principal */}
-        <form onSubmit={aoEnviar} className="space-y-6 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+        {/* Formulário */}
+        <form onSubmit={aoEnviar} className="space-y-5">
           <div className="relative">
             <label className="block text-sm font-medium text-white/60 mb-2">
               <Target className="w-4 h-4 inline mr-1.5 text-purple-400" />
               Qual o tema do seu vídeo?
             </label>
-            <div className={`relative rounded-2xl transition-all duration-300 ${focado ? 'ring-2 ring-purple-500/50' : ''}`}>
-              <input 
-                type="text"
-                value={tema}
-                onChange={(e) => setTema(e.target.value)}
-                onFocus={() => setFocado(true)}
-                onBlur={() => setFocado(false)}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white placeholder-white/20 outline-none"
-                placeholder="Ex: receitas veganas, dicas de finanças..."
-                maxLength={200}
-              />
-            </div>
+            <input 
+              type="text"
+              value={tema}
+              onChange={(e) => setTema(e.target.value)}
+              onFocus={() => setFocado(true)}
+              onBlur={() => setFocado(false)}
+              className={`w-full bg-white/5 border rounded-2xl px-5 py-4 text-white placeholder-white/20 outline-none transition ${
+                focado ? 'border-purple-500/50' : 'border-white/10'
+              }`}
+              placeholder="Ex: receitas veganas, dicas de finanças..."
+              maxLength={200}
+            />
           </div>
 
-          {/* Sugestões de Temas */}
+          {/* Sugestões */}
           <div className="flex flex-wrap gap-2">
             {sugestoesTemas.map((sugestao) => (
               <button
                 key={sugestao.valor}
                 type="button"
                 onClick={() => setTema(sugestao.valor)}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full glass-light text-white/40 hover:text-white transition-all"
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-white hover:border-white/20 transition"
               >
                 <span>{sugestao.emoji}</span>
                 <span>{sugestao.rotulo}</span>
@@ -102,7 +103,7 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             ))}
           </div>
 
-          {/* Seletor de Plataforma */}
+          {/* Plataformas */}
           <div className="grid grid-cols-3 gap-3">
             {(Object.keys(PLATFORM_CONFIG) as Platform[]).map((chave) => {
               const info = PLATFORM_CONFIG[chave];
@@ -112,15 +113,18 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
                   key={chave}
                   type="button"
                   onClick={() => setPlataforma(chave)}
-                  className={`relative rounded-2xl p-4 text-center transition-all duration-300 group ${
-                    selecionada ? `${info.bgClasse} border-2 ${info.bordaClasse} scale-[1.02] shadow-lg` : 'glass-light border border-white/5 hover:border-white/15'
+                  className={`rounded-2xl p-4 text-center transition-all ${
+                    selecionada
+                      ? 'bg-purple-500/20 border-2 border-purple-400 shadow-lg shadow-purple-500/10 scale-[1.02]'
+                      : 'bg-white/5 border border-white/10 hover:border-white/20'
                   }`}
                 >
-                  <div className={`text-2xl mb-2 group-hover:scale-110 transition-transform ${selecionada ? 'text-white' : 'text-white/40'}`}>
-                    {/* Renderiza o ícone dinâmico do PLATFORM_CONFIG */}
+                  <div className={`text-2xl mb-2 ${selecionada ? 'text-white' : 'text-white/40'}`}>
                     {React.createElement(info.icone)}
                   </div>
-                  <div className={`text-sm font-bold ${selecionada ? 'text-white' : 'text-white/60'}`}>{info.nome}</div>
+                  <div className={`text-sm font-bold ${selecionada ? 'text-white' : 'text-white/60'}`}>
+                    {info.nome}
+                  </div>
                   <div className="text-[10px] text-white/25 mt-1">{info.descricao}</div>
                 </button>
               );
@@ -130,9 +134,11 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
           {/* Botão Gerar */}
           <button
             type="submit"
-            disabled={!tema.trim() || !plataforma || carregando || !backendOk}
+            disabled={!tema.trim() || !plataforma || carregando}
             className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all ${
-              !tema.trim() || !plataforma ? 'bg-white/5 text-white/20 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/20'
+              !tema.trim() || !plataforma || carregando
+                ? 'bg-white/5 text-white/20 cursor-not-allowed'
+                : 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/20'
             }`}
           >
             {carregando ? (
@@ -148,10 +154,14 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
               </>
             )}
           </button>
-        </form>
 
-        {/* ÁREA DE RESULTADO (ONDE ESTAVA O ERRO) */}
-        {/* Aqui você deve renderizar o componente <ExibirResultado /> passando os dados da sua API */}
+          {/* Aviso se backend não estiver ok */}
+          {!backendOk && (
+            <p className="text-xs text-amber-400/70 text-center">
+              ⚠️ Serviços ainda não verificados – o conteúdo pode demorar mais.
+            </p>
+          )}
+        </form>
       </div>
     </div>
   );
