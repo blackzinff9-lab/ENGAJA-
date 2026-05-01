@@ -1,186 +1,158 @@
 import React, { useState, useRef } from 'react';
 import { 
-  Send, 
-  Video, 
-  Smartphone, 
-  Play, 
-  Sparkles, 
-  Layout, 
-  Zap, 
-  Target, 
-  AlertCircle, 
-  Loader2,
-  Copy,
-  CheckCircle,
-  Share2,
-  Bookmark,
-  Clock,
-  TrendingUp,
-  Lightbulb
+  Sparkles, ArrowRight, Loader2, Lightbulb, Target, TrendingUp, Server, 
+  Copy, CheckCircle, Video, Smartphone, Play, Share2, Layout, Zap 
 } from 'lucide-react';
+import { Platform, PLATFORM_CONFIG } from './types';
+import { StatusBackend } from './api';
 
 interface DashboardProps {
-  user: { nome: string; avatar: string; };
+  aoGerar: (tema: string, plataforma: Platform) => void;
+  carregando: boolean;
+  backendOk: boolean;
+  statusBackend: StatusBackend | null;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ user }) => {
-  const [tema, setTema] = useState('');
-  const [plataforma, setPlataforma] = useState<'tiktok' | 'instagram' | 'youtube'>('tiktok');
-  const [loading, setLoading] = useState(false);
-  const [resultado, setResultado] = useState<any>(null);
-  const [erro, setErro] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const resultRef = useRef<HTMLDivElement>(null);
+const sugestoesTemas = [
+  { emoji: "🥗", rotulo: "Receitas veganas", valor: "receitas veganas" },
+  { emoji: "🏋️", rotulo: "Treino HIIT", valor: "treino HIIT em casa" },
+  { emoji: "💻", rotulo: "Dicas de programação", valor: "dicas de programação" },
+  { emoji: "💰", rotulo: "Renda extra", valor: "como ganhar renda extra online" },
+];
 
-  const handleGerar = async (e: React.FormEvent) => {
+export default function Dashboard({ aoGerar, carregando, backendOk, statusBackend }: DashboardProps) {
+  const [tema, setTema] = useState('');
+  const [plataforma, setPlataforma] = useState<Platform | null>(null);
+  const [focado, setFocado] = useState(false);
+  const [copiado, setCopiado] = useState(false);
+
+  const aoEnviar = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tema.trim()) return;
-    setLoading(true);
-    setErro(null);
-    
-    try {
-      const response = await fetch('/api/gerar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tema, plataforma }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || 'Erro ao gerar conteúdo');
-      setResultado(data);
-      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-    } catch (err: any) {
-      setErro(err.message);
-    } finally {
-      setLoading(false);
+    if (tema.trim() && plataforma) {
+      aoGerar(tema.trim(), plataforma);
     }
   };
 
-  const copyToClipboard = () => {
-    const text = `${resultado.titulo}\n\n${resultado.roteiro || resultado.descricao}`;
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  // Lógica para formatar os serviços ativos (como no seu print)
+  const serviçosTexto = statusBackend ? [
+    statusBackend.groq_configurado && '✅ IA Groq',
+    statusBackend.youtube_configurado && '✅ YouTube API',
+    statusBackend.trends_mcp_configurado && '✅ Trends MCP'
+  ].filter(Boolean).join('  •  ') : 'Verificando serviços...';
 
   return (
-    <div className="max-w-5xl mx-auto px-4 pb-20">
-      <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-12 bg-slate-800/30 p-6 rounded-3xl border border-slate-700/50">
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <img src={user.avatar} className="w-16 h-16 rounded-2xl border-2 border-indigo-500/50 object-cover" alt={user.nome} />
-            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-2 border-[#0f172a] rounded-full" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-white tracking-tight">Painel Criativo</h2>
-            <p className="text-slate-400 text-sm">Bem-vindo de volta, {user.nome.split(' ')[0]}</p>
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <div className="px-4 py-2 bg-slate-900/50 rounded-xl border border-slate-700/50 flex items-center gap-2">
-            <Zap className="w-4 h-4 text-yellow-400" />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Pro Plan</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-slate-800/40 backdrop-blur-xl border border-slate-700/50 rounded-[3rem] p-8 md:p-12 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/5 rounded-full blur-3xl -mr-32 -mt-32" />
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 noise-bg relative">
+      <div className="relative z-10 w-full max-w-5xl">
         
-        <form onSubmit={handleGerar} className="relative z-10 space-y-10">
-          <div className="space-y-4">
-            <div className="flex justify-between items-end px-1">
-              <label className="text-sm font-bold text-slate-200 uppercase tracking-widest">O que vamos criar?</label>
-              <span className="text-xs text-slate-500 font-medium">{tema.length}/500</span>
+        {/* Cabeçalho Hero */}
+        <div className="text-center mb-10 animate-slide-up">
+          <div className="inline-flex items-center gap-2 glass-light rounded-full px-4 py-1.5 mb-6 text-xs text-white/50">
+            <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
+            <span>Tendências reais • IA real • Resultados profissionais</span>
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-black mb-3 tracking-tight text-white">
+            Crie conteúdo <span className="gradient-text">viral</span> em segundos
+          </h2>
+          <p className="text-white/40 text-sm max-w-md mx-auto">
+            Digite o tema do seu vídeo, escolha a plataforma e deixe a IA criar tudo pra você
+          </p>
+        </div>
+
+        {/* Status do Servidor */}
+        <div className="mb-6 p-3 rounded-xl glass-light animate-slide-up" style={{ animationDelay: '0.05s' }}>
+          <div className="flex items-center gap-3 text-xs text-white/30">
+            <Server className="w-3.5 h-3.5 text-purple-400/50" />
+            <span>{serviçosTexto}</span>
+          </div>
+        </div>
+
+        {/* Formulário Principal */}
+        <form onSubmit={aoEnviar} className="space-y-6 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          <div className="relative">
+            <label className="block text-sm font-medium text-white/60 mb-2">
+              <Target className="w-4 h-4 inline mr-1.5 text-purple-400" />
+              Qual o tema do seu vídeo?
+            </label>
+            <div className={`relative rounded-2xl transition-all duration-300 ${focado ? 'ring-2 ring-purple-500/50' : ''}`}>
+              <input 
+                type="text"
+                value={tema}
+                onChange={(e) => setTema(e.target.value)}
+                onFocus={() => setFocado(true)}
+                onBlur={() => setFocado(false)}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white placeholder-white/20 outline-none"
+                placeholder="Ex: receitas veganas, dicas de finanças..."
+                maxLength={200}
+              />
             </div>
-            <textarea
-              value={tema}
-              onChange={(e) => setTema(e.target.value.slice(0, 500))}
-              placeholder="Descreva sua ideia em detalhes para um roteiro mais preciso..."
-              className="w-full bg-slate-900/80 border border-slate-700/50 text-white rounded-[2rem] p-6 focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all min-h-[180px] text-lg font-light leading-relaxed"
-              required
-            />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              { id: 'tiktok', icon: Video, label: 'TikTok Viral', desc: 'Foco em Retenção' },
-              { id: 'instagram', icon: Smartphone, label: 'Instagram Reels', desc: 'Foco em Estética' },
-              { id: 'youtube', icon: Play, label: 'YouTube Shorts', desc: 'Foco em SEO' },
-            ].map((item) => (
+          {/* Sugestões de Temas */}
+          <div className="flex flex-wrap gap-2">
+            {sugestoesTemas.map((sugestao) => (
               <button
-                key={item.id}
+                key={sugestao.valor}
                 type="button"
-                onClick={() => setPlataforma(item.id as any)}
-                className={`flex flex-col items-start gap-1 p-6 rounded-3xl border text-left transition-all duration-300 ${
-                  plataforma === item.id 
-                    ? 'bg-indigo-600/20 border-indigo-500 shadow-lg shadow-indigo-500/10' 
-                    : 'bg-slate-900/40 border-slate-700/50 text-slate-400 hover:bg-slate-800/60'
-                }`}
+                onClick={() => setTema(sugestao.valor)}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full glass-light text-white/40 hover:text-white transition-all"
               >
-                <item.icon className={`w-6 h-6 mb-2 ${plataforma === item.id ? 'text-indigo-400' : 'text-slate-500'}`} />
-                <span className={`text-sm font-bold ${plataforma === item.id ? 'text-white' : ''}`}>{item.label}</span>
-                <span className="text-[10px] uppercase tracking-tighter opacity-60">{item.desc}</span>
+                <span>{sugestao.emoji}</span>
+                <span>{sugestao.rotulo}</span>
               </button>
             ))}
           </div>
 
+          {/* Seletor de Plataforma */}
+          <div className="grid grid-cols-3 gap-3">
+            {(Object.keys(PLATFORM_CONFIG) as Platform[]).map((chave) => {
+              const info = PLATFORM_CONFIG[chave];
+              const selecionada = plataforma === chave;
+              return (
+                <button
+                  key={chave}
+                  type="button"
+                  onClick={() => setPlataforma(chave)}
+                  className={`relative rounded-2xl p-4 text-center transition-all duration-300 group ${
+                    selecionada ? `${info.bgClasse} border-2 ${info.bordaClasse} scale-[1.02] shadow-lg` : 'glass-light border border-white/5 hover:border-white/15'
+                  }`}
+                >
+                  <div className={`text-2xl mb-2 group-hover:scale-110 transition-transform ${selecionada ? 'text-white' : 'text-white/40'}`}>
+                    {/* Renderiza o ícone dinâmico do PLATFORM_CONFIG */}
+                    {React.createElement(info.icone)}
+                  </div>
+                  <div className={`text-sm font-bold ${selecionada ? 'text-white' : 'text-white/60'}`}>{info.nome}</div>
+                  <div className="text-[10px] text-white/25 mt-1">{info.descricao}</div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Botão Gerar */}
           <button
             type="submit"
-            disabled={loading}
-            className="w-full py-6 rounded-3xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 font-black text-white text-lg shadow-xl shadow-indigo-500/25 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-4"
+            disabled={!tema.trim() || !plataforma || carregando || !backendOk}
+            className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all ${
+              !tema.trim() || !plataforma ? 'bg-white/5 text-white/20 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/20'
+            }`}
           >
-            {loading ? <Loader2 className="animate-spin w-6 h-6" /> : <Sparkles className="w-6 h-6" />}
-            {loading ? 'PROCESSANDO TENDÊNCIAS...' : 'GERAR CONTEÚDO AGORA'}
+            {carregando ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>Gerando conteúdo...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-5 h-5" />
+                <span>Gerar Conteúdo</span>
+                <ArrowRight className="w-5 h-5" />
+              </>
+            )}
           </button>
         </form>
-      </div>
 
-      <div ref={resultRef}>
-        {resultado && (
-          <div className="mt-16 space-y-8 animate-slide-up">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="md:col-span-2 bg-slate-800/40 border border-slate-700/50 rounded-[2.5rem] p-10">
-                <div className="flex justify-between items-start mb-8">
-                  <div>
-                    <h3 className="text-indigo-400 text-xs font-black uppercase tracking-[0.3em] mb-3">Título Sugerido</h3>
-                    <p className="text-3xl font-extrabold text-white leading-tight tracking-tight">{resultado.titulo}</p>
-                  </div>
-                  <button onClick={copyToClipboard} className="p-3 bg-slate-700/30 hover:bg-slate-700/60 rounded-2xl transition-colors">
-                    {copied ? <CheckCircle className="w-5 h-5 text-emerald-400" /> : <Copy className="w-5 h-5 text-slate-400" />}
-                  </button>
-                </div>
-                
-                <div className="h-px bg-gradient-to-r from-slate-700/50 via-transparent to-transparent mb-8" />
-                
-                <h3 className="text-indigo-400 text-xs font-black uppercase tracking-[0.3em] mb-4">Roteiro Completo</h3>
-                <div className="bg-slate-900/60 rounded-[2rem] p-8 border border-slate-700/30 font-mono text-slate-300 leading-relaxed text-sm">
-                  {resultado.roteiro || resultado.descricao}
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div className="bg-gradient-to-br from-indigo-600/20 to-purple-600/20 border border-indigo-500/20 rounded-[2.5rem] p-8">
-                  <div className="flex items-center gap-2 mb-6 text-indigo-400">
-                    <TrendingUp className="w-5 h-5" />
-                    <span className="text-xs font-black uppercase tracking-widest">Estratégia Viral</span>
-                  </div>
-                  <ul className="space-y-4">
-                    {['Hook de 3 segundos', 'Corte dinâmico', 'Legendas coloridas'].map((item, i) => (
-                      <li key={i} className="flex gap-3 text-sm text-slate-200">
-                        <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full mt-1.5 shrink-0 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* ÁREA DE RESULTADO (ONDE ESTAVA O ERRO) */}
+        {/* Aqui você deve renderizar o componente <ExibirResultado /> passando os dados da sua API */}
       </div>
     </div>
   );
-};
-
-export default Dashboard;
-                    
+}
