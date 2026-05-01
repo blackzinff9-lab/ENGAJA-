@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Sparkles, ArrowRight, Loader2, Server, 
-  TrendingUp, Target, Copy, CheckCircle, 
-  Smartphone, Video, Play
+  TrendingUp, Target, Copy, CheckCircle
 } from 'lucide-react';
 import { Platform, PLATFORM_CONFIG } from './types';
 import { StatusBackend } from './api';
@@ -12,7 +11,7 @@ interface DashboardProps {
   carregando: boolean;
   backendOk: boolean;
   statusBackend: StatusBackend | null;
-  conteudoGerado: any; // resultado da geração
+  conteudoGerado: any;
 }
 
 const sugestoesTemas = [
@@ -156,7 +155,6 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
           )}
         </button>
 
-        {/* Aviso se backend não estiver ok */}
         {!backendOk && (
           <p className="text-xs text-amber-400/70 text-center">
             ⚠️ Serviços ainda não verificados – o conteúdo pode demorar mais.
@@ -211,7 +209,7 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
                 {copiado === 'hashtags' ? <CheckCircle className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-blue-400 font-medium">
+            <p className="text-emerald-400 font-medium whitespace-pre-wrap break-words">
               {conteudoGerado.hashtags}
             </p>
           </div>
@@ -247,4 +245,4 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
       )}
     </div>
   );
-}
+                }
