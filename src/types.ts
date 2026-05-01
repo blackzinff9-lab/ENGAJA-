@@ -1,11 +1,13 @@
+import { Smartphone, Play, Video } from 'lucide-react';
+
 export type Platform = 'tiktok' | 'instagram' | 'youtube';
 
 export interface GeneratedContent {
   titulo: string;
   descricao: string;
-  hashtags: string[];
+  hashtags: string;               // string única com # e espaços
   roteiro: string;
-  ideiasEdicao: string[];
+  ideiaEdicao: string;            // string descritiva, não array
   tendencias: string[];
   plataforma: Platform;
   tema: string;
@@ -31,32 +33,23 @@ export const GROQ_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
 export const PLATFORM_CONFIG = {
   tiktok: {
     nome: 'TikTok',
-    cor: '#FE2C55',
-    gradiente: 'from-[#FE2C55] to-[#25F4EE]',
-    icone: '🎵',
-    bgClasse: 'bg-gradient-to-br from-[#FE2C55]/10 to-[#25F4EE]/10',
-    bordaClasse: 'border-[#FE2C55]/30',
-    textoClasse: 'text-[#FE2C55]',
-    descricao: '15s - 10min',
+    icone: Smartphone,            // componente Lucide
+    descricao: 'Roteiros curtos',
+    bgClasse: 'bg-pink-500/20',
+    bordaClasse: 'border-pink-400',
   },
   instagram: {
     nome: 'Instagram',
-    cor: '#E4405F',
-    gradiente: 'from-[#833AB4] via-[#E4405F] to-[#FCAF45]',
-    icone: '📸',
-    bgClasse: 'bg-gradient-to-br from-[#833AB4]/10 via-[#E4405F]/10 to-[#FCAF45]/10',
-    bordaClasse: 'border-[#E4405F]/30',
-    textoClasse: 'text-[#E4405F]',
-    descricao: 'Reels & Feed',
+    icone: Play,
+    descricao: 'Reels e Stories',
+    bgClasse: 'bg-purple-500/20',
+    bordaClasse: 'border-purple-400',
   },
   youtube: {
     nome: 'YouTube',
-    cor: '#FF0000',
-    gradiente: 'from-[#FF0000] to-[#CC0000]',
-    icone: '▶️',
-    bgClasse: 'bg-gradient-to-br from-[#FF0000]/10 to-[#CC0000]/10',
-    bordaClasse: 'border-[#FF0000]/30',
-    textoClasse: 'text-[#FF0000]',
-    descricao: 'Shorts & Longo',
+    icone: Video,
+    descricao: 'Conteúdo longo',
+    bgClasse: 'bg-red-500/20',
+    bordaClasse: 'border-red-400',
   },
 } as const;
