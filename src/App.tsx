@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Dashboard from './Dashboard';
 import { Platform } from './types';
@@ -75,7 +76,7 @@ function App() {
               <Zap className="w-6 h-6 text-white" fill="currentColor" />
             </div>
             <span className="font-bold text-2xl bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-              Viral<span className="text-indigo-400">AI</span>
+              ENGAJA<span className="text-indigo-400">Í</span>
             </span>
           </div>
 
