@@ -1,6 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import Dashboard from './Dashboard';
+import PaginaLogin from './LoginPage';
 import { Platform } from './types';
 import { StatusBackend } from './api';
 import { 
@@ -17,8 +17,42 @@ function App() {
   const [carregando, setCarregando] = useState(false);
   const [backendOk, setBackendOk] = useState(false);
   const [statusBackend, setStatusBackend] = useState<StatusBackend | null>(null);
-  const [conteudoGerado, setConteudoGerado] = useState<any>(null); // estado para o conteúdo
+  const [conteudoGerado, setConteudoGerado] = useState<any>(null);
+  const [usuario, setUsuario] = useState<any>(null); // dados do usuário logado
 
+  // Verifica se há token JWT na URL (após login Google) ou salvo
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (token) {
+      // Salvar token no localStorage e limpar URL
+      localStorage.setItem('token', token);
+      const nome = params.get('nome') || 'Usuário';
+      const email = params.get('email') || '';
+      const avatar = params.get('avatar') || '';
+      setUsuario({ nome, email, avatar });
+      // Limpar parâmetros da URL
+      window.history.replaceState({}, document.title, '/');
+    } else {
+      // Verificar se há token salvo
+      const savedToken = localStorage.getItem('token');
+      if (savedToken) {
+        // Validar token com o back-end
+        fetch(`/api/auth/verificar?token=${savedToken}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.valido) {
+              setUsuario({ nome: data.nome, email: data.email, avatar: data.avatar });
+            } else {
+              localStorage.removeItem('token');
+            }
+          })
+          .catch(() => localStorage.removeItem('token'));
+      }
+    }
+  }, []);
+
+  // Verifica status dos serviços
   useEffect(() => {
     const verificarServicos = async () => {
       try {
@@ -36,7 +70,7 @@ function App() {
 
   const aoGerar = async (tema: string, plataforma: Platform) => {
     setCarregando(true);
-    setConteudoGerado(null); // limpa resultado anterior
+    setConteudoGerado(null);
     try {
       const resposta = await fetch('/api/gerar', {
         method: 'POST',
@@ -44,12 +78,23 @@ function App() {
         body: JSON.stringify({ tema, plataforma }),
       });
       const resultado = await resposta.json();
-      setConteudoGerado(resultado); // armazena o resultado
+      setConteudoGerado(resultado);
     } catch (erro) {
       alert('Erro ao gerar conteúdo. Tente novamente.');
     } finally {
       setCarregando(false);
     }
+  };
+
+  // Função chamada quando o login é bem-sucedido (Google ou Demo)
+  const handleLoginSucesso = (nome: string, email: string, avatar: string) => {
+    setUsuario({ nome, email, avatar });
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setUsuario(null);
+    setConteudoGerado(null);
   };
 
   useEffect(() => {
@@ -58,6 +103,17 @@ function App() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Se não estiver logado, mostra a PaginaLogin (seu componente já existente)
+  if (!usuario) {
+    return (
+      <PaginaLogin 
+        aoEntrar={handleLoginSucesso} 
+        statusBackend={statusBackend} 
+      />
+    );
+  }
+
+  // Logado — mostra o app completo
   return (
     <div className="min-h-screen bg-gray-950 text-white font-sans selection:bg-indigo-500/30">
       {/* Fundo sutil com gradientes */}
@@ -80,15 +136,19 @@ function App() {
             </span>
           </div>
 
-          {/* Links desktop */}
-          <div className="hidden md:flex items-center gap-8">
-            {['Funcionalidades', 'Como Funciona', 'Preços'].map((item) => (
-              <a key={item} href={`#${item}`} className="text-sm text-gray-400 hover:text-white transition-colors">
-                {item}
-              </a>
-            ))}
-            <button className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all">
-              Começar Agora
+          <div className="flex items-center gap-4">
+            {/* Avatar e nome do usuário */}
+            <div className="hidden md:flex items-center gap-2">
+              {usuario.avatar && (
+                <img src={usuario.avatar} alt={usuario.nome} className="w-8 h-8 rounded-full" />
+              )}
+              <span className="text-sm text-gray-400">{usuario.nome}</span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              Sair
             </button>
           </div>
 
