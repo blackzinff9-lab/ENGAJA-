@@ -1,5 +1,5 @@
 """
-ContentForge AI — Backend FastAPI
+ENGAJAÍ — Backend FastAPI
 Deploy no Render, Railway ou Vercel
 
 Variáveis de ambiente necessárias:
@@ -27,7 +27,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-app = FastAPI(title="ContentForge AI API")
+app = FastAPI(title="ENGAJAÍ API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -333,7 +333,7 @@ async def gerar_conteudo(req: RequisicaoConteudo):
         except Exception:
             dados_tendencias = ""
 
-    # PASSO 2 — Montar prompt rigoroso com exemplo exato
+    # PASSO 2 — Montar prompt rigoroso com exemplo detalhado
     prompt_principal = f"""
 Você é um assistente criativo brasileiro, especialista em SEO e conteúdo viral para {nome_plataforma}.
 
@@ -342,7 +342,7 @@ Tema do vídeo: "{req.tema}"
 Dados de tendências (use como inspiração):
 {f"INÍCIO DOS DADOS DE TENDÊNCIA:\n{dados_tendencias}\nFIM DOS DADOS DE TENDÊNCIA\n" if dados_tendencias else "Nenhum dado externo disponível."}
 
-TAREFA: Crie um JSON com todos os campos abaixo preenchidos em português brasileiro.
+TAREFA: Crie um JSON com todos os campos abaixo preenchidos em português brasileiro, com riqueza de detalhes.
 
 REGRAS INEGOCIÁVEIS:
 1. Responda APENAS com o JSON puro, sem introdução, sem comentários, sem markdown.
@@ -350,15 +350,22 @@ REGRAS INEGOCIÁVEIS:
 3. titulo: máx. 100 caracteres, com gancho forte e a palavra-chave principal.
 4. descricao: 150-400 caracteres, com call to action, emojis, e palavras-chave interligadas ao título e às hashtags.
 5. hashtags: EXATAMENTE o formato "#tag1 #tag2 #tag3" — uma string única, sem vírgulas, sem colchetes, cada tag iniciada com #.
-6. roteiro: use [ABERTURA] (0-3s), [DESENVOLVIMENTO] (4-20s), [CLIMAX] (21-25s), [ENCERRAMENTO] (26-30s) com falas e ações.
-7. ideiaEdicao: descreva cores, filtros, tipografia, música, cortes e efeitos visuais. NUNCA deixe vazio. Forneça um texto descritivo com no mínimo 60 palavras.
+6. roteiro: DETALHADO. Divida em cenas numeradas com TEMPOS EXATOS (ex.: [CENA 1 – 0s a 3s]), descreva ENQUADRAMENTO (close, plongée, plano geral), movimentos de câmera, falas COMPLETAS (mínimo 2 frases por cena), transições (corte seco, fade, slide) e sons ambientes. Use estrutura de storytelling (gancho → desenvolvimento → clímax → call to action). Mínimo 300 palavras.
+7. ideiaEdicao: texto descritivo com no MÍNIMO 150 PALAVRAS, MUITO DETALHADO. Inclua:
+   - Paleta de cores (códigos hexadecimais).
+   - Nome de fontes (ex.: Montserrat Bold, Inter Regular).
+   - Filtros visuais (ex.: "filtro Vibrant do Lightroom com +20 contraste").
+   - Sugestão de música (gênero, BPM, clima, exemplo: "Lo-fi hip hop 85 BPM com batida suave").
+   - Efeitos sonoros (ex.: "whoosh em transições, pop no texto animado").
+   - Elementos gráficos (ex.: "linhas cinéticas, stick text amarelo, emojis animados no canto").
+   - Transições específicas entre cenas.
 8. tendencias: array com 3 strings curtas sobre o que está em alta no tema.
 9. Mantenha as palavras-chave alinhadas entre título, descrição e hashtags.
 
-EXEMPLO EXATO DE RESPOSTA:
-{{"titulo": "5 Dicas de Programação para Iniciantes! 💻", "descricao": "Aprenda a programar com essas dicas práticas! 🚀 Explore Python, Java e mais. Assista agora e comece sua jornada tech. #Programação #DevLife #AprendaAProgramar", "hashtags": "#DicasDeProgramação #AprendaProgramar #DevLife #ProgramaçãoParaIniciantes #Tecnologia #Coding #Python #Java", "roteiro": "[ABERTURA] (0-3s) Música eletrônica suave, tela com código digitando. Fala: 'Olá, dev! Pronto para turbinar suas habilidades?'\\n[DESENVOLVIMENTO] (4-20s) Explicação das 5 dicas com exemplos visuais. Transições rápidas.\\n[CLIMAX] (21-25s) Momento Eureka! Tela brilha. Fala: 'Esse erro é mais comum do que você imagina!'\\n[ENCERRAMENTO] (26-30s) Chamada para ação: 'Curta, compartilhe e inscreva-se!' Animação do logo.", "ideiaEdicao": "Use fonte Montserrat bold para títulos, fundo escuro com partículas neon, cortes secos no ritmo da batida eletrônica, filtro vibrante com contraste alto, inclua sobreposição de texto animado e transições de glitch entre as dicas.", "tendencias": ["Vídeos rápidos com dicas numeradas", "Uso de humor e identificação com iniciantes", "Edição acelerada com música eletrônica"]}}
+EXEMPLO EXATO DE RESPOSTA (use como referência de nível de detalhe):
+{{"titulo": "5 Dicas de Programação para Iniciantes! 💻", "descricao": "Aprenda a programar com essas dicas práticas! 🚀 Explore Python, Java e mais. Assista agora e comece sua jornada tech. #Programação #DevLife #AprendaAProgramar", "hashtags": "#DicasDeProgramação #AprendaProgramar #DevLife #ProgramaçãoParaIniciantes #Tecnologia #Coding #Python #Java", "roteiro": "[CENA 1 – ABERTURA (0s-3s)] Enquadramento: Close no teclado com luzes RGB piscando. Câmera lenta subindo até revelar o rosto do criador. Fala (voz enérgica): 'E aí, dev! Já pensou em dominar a programação de uma vez por todas?' Som: teclado mecânico + fade in de música eletrônica animada.\\n[CENA 2 – GANCHO (3s-8s)] Corte seco para plano médio do apresentador. Fala: 'Hoje eu vou te mostrar 5 dicas que todo iniciante precisa saber pra acelerar o aprendizado e não travar nos bugs.' Texto animado sobreposto: '5 DICAS INFALÍVEIS'. Transição: Slide lateral com efeito de glitch.\\n[CENA 3 – DESENVOLVIMENTO (8s-25s)] A cada dica: close em tela de código, motion graphics com a dica aparecendo letra por letra. Dica 1 (Python), Dica 2 (Git), Dica 3 (Debug). Som: efeito sonoro de 'pop' a cada nova dica.\\n[CENA 4 – CLÍMAX (25s-28s)] Fala: 'E a dica secreta... não tenha medo de errar, é nos bugs que a gente mais aprende!' Cortes rápidos entre cenas de código quebrado e funcionando, trilha sobe em intensidade.\\n[CENA 5 – ENCERRAMENTO (28s-30s)] Volta ao plano médio. Fala: 'Curtiu? Salva esse vídeo, compartilha com aquele amigo que tá começando e se inscreve pra mais dicas como essa!' Animação do logo ENGAJAÍ com efeito de partículas. Fade out da música. Som: notificação de 'inscreva-se'.", "ideiaEdicao": "Paleta de cores: fundo preto (#0A0A0A), textos em amarelo (#FFD700) e ciano (#00E5FF). Fonte Montserrat Bold para títulos (48px) e Inter Regular para corpo (28px). Filtro: Vibrant +20 contraste, +10 saturação, leves vinhetas nas bordas. Música: Eletrônica animada 120 BPM com drop no clímax (sugestão: 'Future Bass' no Epidemic Sound). Efeitos sonoros: whoosh em cada transição de cena, pop ao exibir dicas, som de teclado em cenas de código. Elementos gráficos: linhas cinéticas atrás dos textos, stick text amarelo com outline preto em palavras-chave, emojis animados (🚀💡) piscando nos cantos. Transições: glitch entre cenas 1-2, slide com blur nas dicas, corte seco no clímax. Sobreposição de partículas brilhantes (feitas no After Effects) durante todo o vídeo para dar sensação futurista.", "tendencias": ["Vídeos de dicas numeradas com edição acelerada", "Uso de storytelling com humor e identificação", "Motion graphics coloridos sobre tela preta"]}}
 
-Agora responda apenas com o JSON para o tema "{req.tema}".
+Agora responda APENAS com o JSON para o tema "{req.tema}".
 """
 
     resposta_groq = chamar_groq(prompt_principal)
