@@ -27,10 +27,21 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
   const [focado, setFocado] = useState(false);
   const [copiado, setCopiado] = useState<string | null>(null);
 
+  // Novos estados para a sequência de ideias
+  const [sequenciaIdeias, setSequenciaIdeias] = useState<any[] | null>(null);
+  const [carregandoSequencia, setCarregandoSequencia] = useState(false);
+  const [ideiaExpandida, setIdeiaExpandida] = useState<number | null>(null);
+  const [conteudoExtra, setConteudoExtra] = useState<any>(null);
+  const [carregandoExtra, setCarregandoExtra] = useState(false);
+
   const aoEnviar = (e: React.FormEvent) => {
     e.preventDefault();
     if (tema.trim() && plataforma) {
       aoGerar(tema.trim(), plataforma);
+      // Resetar a sequência ao gerar novo conteúdo principal
+      setSequenciaIdeias(null);
+      setIdeiaExpandida(null);
+      setConteudoExtra(null);
     }
   };
 
@@ -48,6 +59,45 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
         statusBackend.trends_mcp_configurado && '✅ Trends MCP'
       ].filter(Boolean).join('  •  ')
     : 'Verificando serviços...';
+
+  // Função para gerar as 10 ideias
+  const gerarSequencia = async () => {
+    if (!tema || !plataforma) return;
+    setCarregandoSequencia(true);
+    try {
+      const resposta = await fetch('/api/gerar-sequencia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tema, plataforma }),
+      });
+      const dados = await resposta.json();
+      setSequenciaIdeias(dados.ideias);
+    } catch (erro) {
+      alert('Erro ao gerar sequência de ideias.');
+    } finally {
+      setCarregandoSequencia(false);
+    }
+  };
+
+  // Função para expandir uma ideia e gerar o conteúdo completo
+  const expandirIdeia = async (index: number, temaCurto: string) => {
+    setIdeiaExpandida(index);
+    setCarregandoExtra(true);
+    setConteudoExtra(null);
+    try {
+      const resposta = await fetch('/api/gerar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tema: temaCurto, plataforma }),
+      });
+      const dados = await resposta.json();
+      setConteudoExtra(dados);
+    } catch (erro) {
+      alert('Erro ao gerar conteúdo completo.');
+    } finally {
+      setCarregandoExtra(false);
+    }
+  };
 
   return (
     <div className="w-full max-w-5xl mx-auto">
@@ -241,8 +291,95 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             </div>
             <p className="text-white/80">{conteudoGerado.ideiaEdicao}</p>
           </div>
+
+          {/* Botão de Sequência Premium */}
+          {!sequenciaIdeias && (
+            <div className="mt-10 text-center">
+              <button
+                onClick={gerarSequencia}
+                disabled={carregandoSequencia}
+                className="relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-bold text-lg bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 text-gray-900 shadow-xl shadow-amber-500/30 hover:shadow-amber-500/50 hover:scale-105 transition-all disabled:opacity-70 disabled:cursor-not-allowed overflow-hidden group"
+              >
+                <span className="absolute inset-0 bg-gradient-to-r from-yellow-300 to-amber-400 opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                {carregandoSequencia ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin relative z-10" />
+                    <span className="relative z-10">Gerando sequência...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-5 h-5 relative z-10" />
+                    <span className="relative z-10">Gerar 10 Ideias Futuras</span>
+                    <ArrowRight className="w-5 h-5 relative z-10" />
+                  </>
+                )}
+              </button>
+              <p className="text-xs text-amber-400/70 mt-2">
+                Planeje seus próximos 10 vídeos interligados e mantenha seu conteúdo coeso.
+              </p>
+            </div>
+          )}
+
+          {/* Lista de Ideias da Sequência */}
+          {sequenciaIdeias && (
+            <div className="mt-10 space-y-4">
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <Sparkles className="w-6 h-6 text-amber-400" />
+                Seus Próximos 10 Vídeos
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {sequenciaIdeias.map((ideia: any, idx: number) => (
+                  <div key={idx} className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:border-amber-400/30 transition-all">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <span className="text-xs text-amber-400 font-bold">#{idx + 1}</span>
+                        <h3 className="text-white font-semibold mt-1">{ideia.titulo}</h3>
+                        <p className="text-white/50 text-sm mt-1">{ideia.temaCurto}</p>
+                      </div>
+                      <button
+                        onClick={() => expandirIdeia(idx, ideia.temaCurto)}
+                        disabled={carregandoExtra && ideiaExpandida === idx}
+                        className="flex-shrink-0 px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-400 text-xs font-bold hover:bg-amber-500/30 transition-all disabled:opacity-50"
+                      >
+                        {carregandoExtra && ideiaExpandida === idx ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          'Gerar Conteúdo'
+                        )}
+                      </button>
+                    </div>
+                    {/* Área de resultado expandido para esta ideia */}
+                    {ideiaExpandida === idx && conteudoExtra && (
+                      <div className="mt-4 pt-4 border-t border-white/10 space-y-3 animate-fade-in">
+                        <div className="bg-white/5 rounded-xl p-3">
+                          <span className="text-xs text-purple-400 font-bold">TÍTULO</span>
+                          <p className="text-white text-sm">{conteudoExtra.titulo}</p>
+                        </div>
+                        <div className="bg-white/5 rounded-xl p-3">
+                          <span className="text-xs text-purple-400 font-bold">DESCRIÇÃO</span>
+                          <p className="text-white/80 text-xs">{conteudoExtra.descricao}</p>
+                        </div>
+                        <div className="bg-white/5 rounded-xl p-3">
+                          <span className="text-xs text-purple-400 font-bold">HASHTAGS</span>
+                          <p className="text-emerald-400 text-xs">{conteudoExtra.hashtags}</p>
+                        </div>
+                        <div className="bg-white/5 rounded-xl p-3">
+                          <span className="text-xs text-purple-400 font-bold">ROTEIRO</span>
+                          <p className="text-white/80 text-xs whitespace-pre-line">{conteudoExtra.roteiro}</p>
+                        </div>
+                        <div className="bg-white/5 rounded-xl p-3">
+                          <span className="text-xs text-purple-400 font-bold">IDEIA DE EDIÇÃO</span>
+                          <p className="text-white/80 text-xs">{conteudoExtra.ideiaEdicao}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
-                }
+          }
