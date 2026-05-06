@@ -47,14 +47,12 @@ TRENDSMCP_API_KEY = os.getenv("TRENDSMCP_API_KEY", "")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 
-# O JWT_SECRET pode ficar no código para testes; em produção, use variável de ambiente
 JWT_SECRET = os.getenv("JWT_SECRET", "contentforge-secret-change-me")
 GROQ_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 
 def get_base_url(request=None):
-    """Detecta a URL base do servidor automaticamente."""
     render_url = os.getenv("RENDER_EXTERNAL_URL", "")
     if render_url:
         return render_url.rstrip("/")
@@ -74,7 +72,7 @@ class RequisicaoConteudo(BaseModel):
 
 
 # ==========================================
-# AUTENTICAÇÃO GOOGLE OAUTH
+# AUTENTICAÇÃO GOOGLE OAUTH (inalterada)
 # ==========================================
 
 @app.get("/api/auth/google/login")
@@ -167,31 +165,55 @@ async def verificar_token(token: str = Query(...)):
 # ==========================================
 
 def limpar_e_extrair_json(texto: str) -> dict:
-    """
-    Tenta extrair um JSON válido de qualquer resposta do Groq,
-    mesmo que venha com texto antes/depois, markdown ou erros de formatação.
-    """
+    """Tenta extrair um JSON válido de qualquer resposta do Groq."""
     texto = texto.strip()
     # Remove crases triplas e indicadores de linguagem
     texto = re.sub(r'^```(?:json)?\s*', '', texto)
     texto = re.sub(r'\s*```$', '', texto)
-
-    # Primeira tentativa: carregar diretamente
+    # Remove possíveis quebras de linha excessivas que podem quebrar strings
+    texto = re.sub(r'(?<!\\)\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})', '', texto)  # Remove escapes inválidos
     try:
         return json.loads(texto)
     except json.JSONDecodeError:
         pass
-
-    # Segunda tentativa: encontrar objeto JSON delimitado por { }
+    # Procura por um objeto JSON no meio do texto
     match = re.search(r'\{.*\}', texto, re.DOTALL)
     if match:
         try:
-            return json.loads(match.group(0))
+            # Tenta corrigir chaves com aspas simples (comum)
+            candidate = match.group(0)
+            # Substitui aspas simples por duplas em chaves e valores, mas cuidado com strings internas
+            # Não é perfeito, mas ajuda
+            candidate = re.sub(r"'([^']*)':", r'"\1":', candidate)
+            return json.loads(candidate)
         except json.JSONDecodeError:
             pass
-
-    # Falha total — retorna dict vazio para acionar fallback
     return {}
+
+
+def normalizar_chaves_json(dados: dict) -> dict:
+    """Corrige nomes de chaves com erros comuns do Groq."""
+    mapeamento_chaves = {
+        'toreiro': 'roteiro',
+        'roteiro': 'roteiro',
+        'ideiaedicao': 'ideiaEdicao',
+        'ideia_edicao': 'ideiaEdicao',
+        'ideiasedicao': 'ideiaEdicao',
+        'ideiasEdicao': 'ideiaEdicao',
+        'ideiaEdicao': 'ideiaEdicao',
+        'titulo': 'titulo',
+        'descricao': 'descricao',
+        'hashtags': 'hashtags',
+        'tendencias': 'tendencias',
+    }
+    corrigido = {}
+    for chave, valor in dados.items():
+        chave_lower = chave.strip().lower()
+        if chave_lower in mapeamento_chaves:
+            corrigido[mapeamento_chaves[chave_lower]] = valor
+        else:
+            corrigido[chave] = valor  # mantém outras chaves
+    return corrigido
 
 
 def chamar_groq(prompt: str) -> str:
@@ -208,14 +230,14 @@ def chamar_groq(prompt: str) -> str:
             "messages": [
                 {
                     "role": "system",
-                    "content": "Você é um especialista brasileiro em criação de conteúdo viral. Responda SEMPRE e APENAS com um objeto JSON válido, sem qualquer texto antes ou depois. Nunca use markdown. O JSON deve ser exato e sem erros de sintaxe.",
+                    "content": "Você é um especialista brasileiro em criação de conteúdo viral. Responda SEMPRE e APENAS com um objeto JSON válido e completo. NUNCA use markdown, NUNCA use array para 'hashtags' ou 'roteiro' (devem ser strings). As chaves devem ser exatamente: titulo, descricao, hashtags, roteiro, ideiaEdicao, tendencias.",
                 },
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.8,
-            "max_tokens": 4000,
+            "max_tokens": 8000,  # Aumentado para dar espaço para roteiro e edição detalhados
         },
-        timeout=60,
+        timeout=90,
     )
     if resposta.status_code == 429:
         raise HTTPException(status_code=429, detail="Limite de requisições do Groq atingido.")
@@ -333,45 +355,43 @@ async def gerar_conteudo(req: RequisicaoConteudo):
         except Exception:
             dados_tendencias = ""
 
-    # PASSO 2 — Montar prompt rigoroso com exemplo detalhado
+    # PASSO 2 — Prompt rigoroso com formato exato
     prompt_principal = f"""
-Você é um assistente criativo brasileiro, especialista em SEO e conteúdo viral para {nome_plataforma}.
+Você é um criador de conteúdo viral brasileiro especializado em {nome_plataforma}.
 
 Tema do vídeo: "{req.tema}"
 
 Dados de tendências (use como inspiração):
 {f"INÍCIO DOS DADOS DE TENDÊNCIA:\n{dados_tendencias}\nFIM DOS DADOS DE TENDÊNCIA\n" if dados_tendencias else "Nenhum dado externo disponível."}
 
-TAREFA: Crie um JSON com todos os campos abaixo preenchidos em português brasileiro, com riqueza de detalhes.
+INSTRUÇÕES ESTRITAS:
+1. Responda APENAS com o JSON puro, sem introdução, sem markdown, sem comentários.
+2. O JSON DEVE ter exatamente as chaves: "titulo", "descricao", "hashtags", "roteiro", "ideiaEdicao", "tendencias".
+3. "hashtags": STRING ÚNICA com tags separadas por espaço, cada uma começando com #. Exemplo: "#DicasDeProgramação #AprendaProgramar #DevLife". NÃO USE ARRAY.
+4. "roteiro": STRING ÚNICA contendo o roteiro COMPLETO do vídeo. Divida em cenas com [CENA X – ABERTURA (0s-3s)], descreva enquadramento, falas, sons e transições. O roteiro deve ter no MÍNIMO 300 PALAVRAS. NÃO USE ARRAY.
+5. "ideiaEdicao": STRING ÚNICA descritiva com no MÍNIMO 150 PALAVRAS, incluindo paleta de cores (códigos hex), fontes, filtros, música (gênero e BPM), efeitos sonoros, elementos gráficos.
+6. "tendencias": array de 3 strings curtas.
+7. Todas as strings devem estar em português brasileiro.
 
-REGRAS INEGOCIÁVEIS:
-1. Responda APENAS com o JSON puro, sem introdução, sem comentários, sem markdown.
-2. Comece com "{{" e termine com "}}".
-3. titulo: máx. 100 caracteres, com gancho forte e a palavra-chave principal.
-4. descricao: 150-400 caracteres, com call to action, emojis, e palavras-chave interligadas ao título e às hashtags.
-5. hashtags: EXATAMENTE o formato "#tag1 #tag2 #tag3" — uma string única, sem vírgulas, sem colchetes, cada tag iniciada com #.
-6. roteiro: DETALHADO. Divida em cenas numeradas com TEMPOS EXATOS (ex.: [CENA 1 – 0s a 3s]), descreva ENQUADRAMENTO (close, plongée, plano geral), movimentos de câmera, falas COMPLETAS (mínimo 2 frases por cena), transições (corte seco, fade, slide) e sons ambientes. Use estrutura de storytelling (gancho → desenvolvimento → clímax → call to action). Mínimo 300 palavras.
-7. ideiaEdicao: texto descritivo com no MÍNIMO 150 PALAVRAS, MUITO DETALHADO. Inclua:
-   - Paleta de cores (códigos hexadecimais).
-   - Nome de fontes (ex.: Montserrat Bold, Inter Regular).
-   - Filtros visuais (ex.: "filtro Vibrant do Lightroom com +20 contraste").
-   - Sugestão de música (gênero, BPM, clima, exemplo: "Lo-fi hip hop 85 BPM com batida suave").
-   - Efeitos sonoros (ex.: "whoosh em transições, pop no texto animado").
-   - Elementos gráficos (ex.: "linhas cinéticas, stick text amarelo, emojis animados no canto").
-   - Transições específicas entre cenas.
-8. tendencias: array com 3 strings curtas sobre o que está em alta no tema.
-9. Mantenha as palavras-chave alinhadas entre título, descrição e hashtags.
+EXEMPLO DE RESPOSTA VÁLIDA (note que roteiro e hashtags são strings longas, não arrays):
+{{
+  "titulo": "5 Dicas Infalíveis de Programação para Iniciantes! 💻",
+  "descricao": "Aprenda programação com essas dicas práticas! 🚀 Python, Java e mais. Assista e turbine sua carreira tech.",
+  "hashtags": "#DicasDeProgramação #AprendaProgramar #DevLife #Tecnologia #Coding #ProgramaçãoParaIniciantes",
+  "roteiro": "[CENA 1 – ABERTURA (0s-3s)] Close em teclado RGB com luzes piscando. Câmera sobe lentamente revelando o rosto do apresentador. Fala enérgica: 'E aí, dev! Pronto para dominar a programação de uma vez por todas?' Som: teclado mecânico + fade in de música eletrônica animada.\\n[CENA 2 – GANCHO (3s-8s)] Corte seco para plano médio. Apresentador gesticula: 'Hoje eu vou te mostrar 5 dicas que todo iniciante precisa saber pra acelerar o aprendizado e não travar nos bugs.' Texto sobreposto: '5 DICAS INFALÍVEIS'. Transição: slide lateral com efeito glitch.\\n[CENA 3 – DESENVOLVIMENTO (8s-25s)] Close em tela de código. A cada dica, motion graphics coloridos destacam a técnica. Dica 1: Python; Dica 2: Git; Dica 3: Debug. Som: pop a cada nova dica, música de fundo crescente.\\n[CENA 4 – CLÍMAX (25s-28s)] Fala: 'E a dica secreta... não tenha medo de errar, é nos bugs que a gente mais aprende!' Cortes rápidos entre código quebrado e funcionando. Trilha sonora atinge o pico.\\n[CENA 5 – ENCERRAMENTO (28s-30s)] Volta ao plano médio. Fala: 'Curtiu? Salva esse vídeo, compartilha com aquele amigo que tá começando e se inscreve pra mais dicas como essa!' Animação do logo ENGAJAÍ com partículas brilhantes. Fade out da música. Som: notificação de 'inscreva-se'.",
+  "ideiaEdicao": "Paleta de cores: fundo preto (#0A0A0A), texto amarelo (#FFD700) e ciano (#00E5FF). Fonte Montserrat Bold 48px para títulos, Inter Regular 28px para corpo. Filtro: Vibrant +20 contraste, +10 saturação, leve vignette. Música eletrônica 120 BPM (Future Bass) com drop no clímax. Efeitos sonoros: whoosh em transições, pop ao exibir dicas, clique de teclado na cena de código. Elementos gráficos: linhas cinéticas atrás do texto, stick text amarelo com outline preto, emojis animados (🚀💡) nos cantos. Transições: glitch entre cenas, slide blur, cortes secos. Sobreposição de partículas brilhantes durante todo o vídeo.",
+  "tendencias": ["Vídeos de dicas numeradas com edição acelerada", "Uso de humor e identificação com iniciantes", "Motion graphics coloridos sobre tela preta"]
+}}
 
-EXEMPLO EXATO DE RESPOSTA (use como referência de nível de detalhe):
-{{"titulo": "5 Dicas de Programação para Iniciantes! 💻", "descricao": "Aprenda a programar com essas dicas práticas! 🚀 Explore Python, Java e mais. Assista agora e comece sua jornada tech. #Programação #DevLife #AprendaAProgramar", "hashtags": "#DicasDeProgramação #AprendaProgramar #DevLife #ProgramaçãoParaIniciantes #Tecnologia #Coding #Python #Java", "roteiro": "[CENA 1 – ABERTURA (0s-3s)] Enquadramento: Close no teclado com luzes RGB piscando. Câmera lenta subindo até revelar o rosto do criador. Fala (voz enérgica): 'E aí, dev! Já pensou em dominar a programação de uma vez por todas?' Som: teclado mecânico + fade in de música eletrônica animada.\\n[CENA 2 – GANCHO (3s-8s)] Corte seco para plano médio do apresentador. Fala: 'Hoje eu vou te mostrar 5 dicas que todo iniciante precisa saber pra acelerar o aprendizado e não travar nos bugs.' Texto animado sobreposto: '5 DICAS INFALÍVEIS'. Transição: Slide lateral com efeito de glitch.\\n[CENA 3 – DESENVOLVIMENTO (8s-25s)] A cada dica: close em tela de código, motion graphics com a dica aparecendo letra por letra. Dica 1 (Python), Dica 2 (Git), Dica 3 (Debug). Som: efeito sonoro de 'pop' a cada nova dica.\\n[CENA 4 – CLÍMAX (25s-28s)] Fala: 'E a dica secreta... não tenha medo de errar, é nos bugs que a gente mais aprende!' Cortes rápidos entre cenas de código quebrado e funcionando, trilha sobe em intensidade.\\n[CENA 5 – ENCERRAMENTO (28s-30s)] Volta ao plano médio. Fala: 'Curtiu? Salva esse vídeo, compartilha com aquele amigo que tá começando e se inscreve pra mais dicas como essa!' Animação do logo ENGAJAÍ com efeito de partículas. Fade out da música. Som: notificação de 'inscreva-se'.", "ideiaEdicao": "Paleta de cores: fundo preto (#0A0A0A), textos em amarelo (#FFD700) e ciano (#00E5FF). Fonte Montserrat Bold para títulos (48px) e Inter Regular para corpo (28px). Filtro: Vibrant +20 contraste, +10 saturação, leves vinhetas nas bordas. Música: Eletrônica animada 120 BPM com drop no clímax (sugestão: 'Future Bass' no Epidemic Sound). Efeitos sonoros: whoosh em cada transição de cena, pop ao exibir dicas, som de teclado em cenas de código. Elementos gráficos: linhas cinéticas atrás dos textos, stick text amarelo com outline preto em palavras-chave, emojis animados (🚀💡) piscando nos cantos. Transições: glitch entre cenas 1-2, slide com blur nas dicas, corte seco no clímax. Sobreposição de partículas brilhantes (feitas no After Effects) durante todo o vídeo para dar sensação futurista.", "tendencias": ["Vídeos de dicas numeradas com edição acelerada", "Uso de storytelling com humor e identificação", "Motion graphics coloridos sobre tela preta"]}}
-
-Agora responda APENAS com o JSON para o tema "{req.tema}".
+Agora gere o JSON para o tema "{req.tema}" seguindo rigorosamente o formato acima.
 """
 
     resposta_groq = chamar_groq(prompt_principal)
-    conteudo = limpar_e_extrair_json(resposta_groq)
 
-    # PASSO 3 — Extrair e tratar campos
+    # PASSO 3 — Extrair, normalizar e tratar campos
+    conteudo_bruto = limpar_e_extrair_json(resposta_groq)
+    conteudo = normalizar_chaves_json(conteudo_bruto)
+
     titulo = conteudo.get("titulo", "")
     descricao = conteudo.get("descricao", "")
     hashtags = conteudo.get("hashtags", "")
@@ -379,23 +399,42 @@ Agora responda APENAS com o JSON para o tema "{req.tema}".
     ideia_edicao = conteudo.get("ideiaEdicao", "")
     tendencias = conteudo.get("tendencias", [])
 
-    # Garantir hashtags como string única
+    # Tratamento de hashtags
     if isinstance(hashtags, list):
         hashtags = " ".join(f"#{h.strip().lstrip('#')}" for h in hashtags if h.strip())
     if not hashtags or not any(c.isalpha() for c in hashtags):
-        hashtags = f"#{req.tema.replace(' ', '').lower()} #dicas #conteudo #viral #{req.plataforma}"
+        # Fallback mais inteligente: pega palavras-chave do tema
+        palavras = req.tema.split()
+        hashtags = " ".join([f"#{palavra.capitalize()}" for palavra in palavras[:4]]) + " #dicas #viral"
 
-    # Garantir ideiaEdicao descritiva
+    # Tratamento do roteiro
+    if isinstance(roteiro, list):
+        # Converte lista de cenas em string legível
+        partes = []
+        for idx, cena in enumerate(roteiro, start=1):
+            if isinstance(cena, dict):
+                nome = cena.get("nome", cena.get("cena", f"Cena {idx}"))
+                tempo = cena.get("tempo", "")
+                fala = cena.get("fala", "")
+                enquadramento = cena.get("enquadramento", "")
+                partes.append(f"[{nome} - {tempo}] Enquadramento: {enquadramento}. Fala: {fala}")
+            else:
+                partes.append(str(cena))
+        roteiro = "\n".join(partes)
+    if not roteiro or len(roteiro) < 50:
+        roteiro = resposta_groq[:1500]  # usa resposta bruta como texto se roteiro vazio
+
+    # Tratamento ideiaEdicao
     if isinstance(ideia_edicao, list):
         ideia_edicao = "\n".join(ideia_edicao)
-    if not ideia_edicao or len(ideia_edicao.strip()) < 10:
-        ideia_edicao = "Use filtros vibrantes com cores da moda, adicione texto animado com a fonte Montserrat, inclua música eletrônica suave de fundo (copyright free) e faça cortes rápidos no ritmo da batida."
+    if not ideia_edicao or len(ideia_edicao.strip()) < 20:
+        ideia_edicao = "Paleta: #0A0A0A, #FFD700, #00E5FF. Fonte Montserrat Bold. Música eletrônica 120 BPM. Cortes rápidos com glitch."
 
-    # Fallback para título e descrição se não vierem
+    # Título e descrição com fallback mais criativo
     if not titulo:
-        titulo = f"Crie vídeos incríveis sobre: {req.tema}"
+        titulo = f"{req.tema.split()[0].capitalize()}: O Segredo Revelado!"
     if not descricao:
-        descricao = resposta_groq[:400] if resposta_groq else f"Conteúdo gerado sobre {req.tema}"
+        descricao = f"Descubra tudo sobre {req.tema}. Assista e compartilhe! #dicas #viral"
 
     if not isinstance(tendencias, list):
         tendencias = [tendencias] if tendencias else []
@@ -404,7 +443,7 @@ Agora responda APENAS com o JSON para o tema "{req.tema}".
         "titulo": titulo,
         "descricao": descricao,
         "hashtags": hashtags,
-        "roteiro": roteiro if roteiro else resposta_groq,
+        "roteiro": roteiro,
         "ideiaEdicao": ideia_edicao,
         "tendencias": tendencias,
         "plataforma": req.plataforma,
@@ -425,7 +464,7 @@ async def status():
 
 
 # ==========================================
-# SERVIR FRONTEND (versão ultra compatível)
+# SERVIR FRONTEND
 # ==========================================
 
 possiveis_caminhos = [
