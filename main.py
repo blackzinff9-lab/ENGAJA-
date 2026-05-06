@@ -71,6 +71,11 @@ class RequisicaoConteudo(BaseModel):
     plataforma: str
 
 
+class RequisicaoSequencia(BaseModel):
+    tema: str
+    plataforma: str
+
+
 # ==========================================
 # AUTENTICAÇÃO GOOGLE OAUTH (inalterada)
 # ==========================================
@@ -454,6 +459,51 @@ Agora gere o JSON para o tema "{req.tema}" seguindo rigorosamente o formato e as
     }
 
 
+# ==========================================
+# ENDPOINT DE SEQUÊNCIA DE IDEIAS (10 vídeos)
+# ==========================================
+
+@app.post("/api/gerar-sequencia")
+async def gerar_sequencia(req: RequisicaoSequencia):
+    if not req.tema.strip():
+        raise HTTPException(status_code=400, detail="O tema não pode estar vazio.")
+    if req.plataforma not in ("tiktok", "instagram", "youtube"):
+        raise HTTPException(status_code=400, detail="Plataforma inválida.")
+
+    nome_plataforma = {
+        "tiktok": "TikTok",
+        "instagram": "Instagram",
+        "youtube": "YouTube",
+    }[req.plataforma]
+
+    prompt = f"""
+Você é um estrategista de conteúdo para {nome_plataforma}. Um criador acabou de gerar um vídeo sobre "{req.tema}" e agora quer planejar os próximos 10 vídeos, todos interligados ao tema central de forma a criar uma série coesa e viral.
+
+Gere uma lista com EXATAMENTE 10 ideias. Cada ideia deve ter:
+- "titulo": um título curto e chamativo (máx. 80 caracteres) que poderia ser usado para o vídeo.
+- "temaCurto": uma frase curta (máx. 100 caracteres) descrevendo o tema específico daquele vídeo.
+
+As ideias devem:
+- Ser sequenciais e complementares, contando uma história ou aprofundando o conhecimento.
+- Ser otimizadas para o algoritmo do {nome_plataforma}.
+- Incluir ganchos e palavras-chave relevantes.
+
+Responda APENAS com um JSON puro contendo a chave "ideias", que é um array de objetos com "titulo" e "temaCurto". Exemplo:
+{{"ideias": [{{"titulo": "...", "temaCurto": "..."}}, ...]}}
+"""
+
+    resposta = chamar_groq(prompt)
+    dados = limpar_e_extrair_json(resposta)
+    
+    ideias = dados.get("ideias", [])
+    if not isinstance(ideias, list) or len(ideias) == 0:
+        ideias = [{"titulo": f"{req.tema} - Parte {i+1}", "temaCurto": f"Continuação de {req.tema}"} for i in range(10)]
+    while len(ideias) < 10:
+        ideias.append({"titulo": f"{req.tema} - Extra {len(ideias)+1}", "temaCurto": f"Mais sobre {req.tema}"})
+    
+    return {"ideias": ideias[:10], "temaOriginal": req.tema, "plataforma": req.plataforma}
+
+
 @app.get("/api/status")
 async def status():
     return {
@@ -503,3 +553,4 @@ else:
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+```
