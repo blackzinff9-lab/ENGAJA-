@@ -77,7 +77,7 @@ class RequisicaoSequencia(BaseModel):
 
 
 # ==========================================
-# AUTENTICAÇÃO GOOGLE OAUTH (inalterada)
+# AUTENTICAÇÃO GOOGLE OAUTH
 # ==========================================
 
 @app.get("/api/auth/google/login")
@@ -477,16 +477,17 @@ async def gerar_sequencia(req: RequisicaoSequencia):
     }[req.plataforma]
 
     prompt = f"""
-Você é um estrategista de conteúdo para {nome_plataforma}. Um criador acabou de gerar um vídeo sobre "{req.tema}" e agora quer planejar os próximos 10 vídeos, todos interligados ao tema central de forma a criar uma série coesa e viral.
+Você é um estrategista de conteúdo para {nome_plataforma}. Um criador acabou de gerar um vídeo sobre "{req.tema}" e agora quer planejar os próximos 10 vídeos, todos relacionados ao universo do tema, mas com abordagens DIVERSIFICADAS e COMPLEMENTARES.
 
 Gere uma lista com EXATAMENTE 10 ideias. Cada ideia deve ter:
-- "titulo": um título curto e chamativo (máx. 80 caracteres) que poderia ser usado para o vídeo.
+- "titulo": um título curto e chamativo (máx. 80 caracteres).
 - "temaCurto": uma frase curta (máx. 100 caracteres) descrevendo o tema específico daquele vídeo.
 
-As ideias devem:
-- Ser sequenciais e complementares, contando uma história ou aprofundando o conhecimento.
-- Ser otimizadas para o algoritmo do {nome_plataforma}.
-- Incluir ganchos e palavras-chave relevantes.
+REGRAS IMPORTANTES:
+- EVITE repetir o mesmo enfoque. Explore ângulos diferentes: curiosidades, mitos, passo a passo, erros comuns, ferramentas, entrevistas, desafios, listas, cases reais, tendências, etc.
+- As ideias devem formar uma SÉRIE COESA, mas cada vídeo deve ter valor assistindo sozinho.
+- Otimize os títulos para o algoritmo do {nome_plataforma}.
+- Inclua ganchos e palavras-chave relevantes.
 
 Responda APENAS com um JSON puro contendo a chave "ideias", que é um array de objetos com "titulo" e "temaCurto". Exemplo:
 {{"ideias": [{{"titulo": "...", "temaCurto": "..."}}, ...]}}
@@ -516,7 +517,7 @@ async def status():
 
 
 # ==========================================
-# SERVIR FRONTEND (ultra compatível)
+# SERVIR FRONTEND
 # ==========================================
 
 possiveis_caminhos = [
