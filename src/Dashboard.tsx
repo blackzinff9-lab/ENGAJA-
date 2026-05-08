@@ -27,7 +27,7 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
   const [focado, setFocado] = useState(false);
   const [copiado, setCopiado] = useState<string | null>(null);
 
-  // Novos estados para a sequência de ideias
+  // Estados para a sequência de ideias
   const [sequenciaIdeias, setSequenciaIdeias] = useState<any[] | null>(null);
   const [carregandoSequencia, setCarregandoSequencia] = useState(false);
   const [ideiaExpandida, setIdeiaExpandida] = useState<number | null>(null);
@@ -325,7 +325,7 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             <div className="mt-10 space-y-4">
               <h2 className="text-2xl font-bold text-white flex items-center gap-2">
                 <Sparkles className="w-6 h-6 text-amber-400" />
-                Seus Próximos 10 Vídeos
+                Próximos 10 Vídeos (Diversos)
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {sequenciaIdeias.map((ideia: any, idx: number) => (
@@ -382,4 +382,4 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
       )}
     </div>
   );
-          }
+    }
