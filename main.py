@@ -143,12 +143,18 @@ async def google_callback(request: Request, code: str = Query(...)):
         nome = user_info.get("name", "Usuário")
         email = user_info.get("email", "")
         avatar = user_info.get("picture", f"https://ui-avatars.com/api/?name={urllib.parse.quote(nome)}&background=6366f1&color=fff&size=128&bold=true")
+
         # Salvar ou atualizar usuário no Supabase
         user_id = user_info.get("sub", "")
-        supabase.table("users").upsert({
-            "id": user_id,
-            "email": email,
-        }).execute()
+        if user_id:
+            try:
+                supabase.table("users").upsert({
+                    "id": user_id,
+                    "email": email,
+                }).execute()
+            except Exception as e:
+                print(f"[Supabase] Erro ao upsert user: {e}")
+
         payload = {
             "sub": user_id,
             "nome": nome,
@@ -174,12 +180,25 @@ async def google_callback(request: Request, code: str = Query(...)):
 async def verificar_token(token: str = Query(...)):
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload.get("sub", "")
+
+        # Buscar plano atual no Supabase
+        plano = "free"
+        if user_id:
+            try:
+                res = supabase.table("users").select("plan").eq("id", user_id).execute()
+                if res.data:
+                    plano = res.data[0].get("plan", "free")
+            except Exception:
+                pass
+
         return {
             "valido": True,
             "nome": payload.get("nome", ""),
             "email": payload.get("email", ""),
             "avatar": payload.get("avatar", ""),
-            "sub": payload.get("sub", ""),
+            "sub": user_id,
+            "plano": plano,
         }
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expirado. Faça login novamente.")
@@ -288,7 +307,11 @@ def pesquisar_tendencias_youtube(tema: str) -> str:
         videos = dados.get("items", [])
         if not videos:
             return ""
-        linhas = [f'{i+1}. "{v["snippet"]["title"]}" (Canal: {v["snippet"]["channelTitle"]})' for i, v in enumerate(videos)]
+        linhas = []
+        for i, v in enumerate(videos, 1):
+            titulo = v.get("snippet", {}).get("title", "")
+            canal = v.get("snippet", {}).get("channelTitle", "")
+            linhas.append(f'{i}. "{titulo}" (Canal: {canal})')
         return f'Tendências reais do YouTube sobre "{tema}":\n' + "\n".join(linhas)
     except Exception as e:
         print(f"[YouTube API] Erro: {e}")
@@ -349,6 +372,7 @@ async def get_plano_usuario(user_id: str) -> str:
     except Exception:
         return "free"
 
+
 async def get_uso_diario(user_id: str) -> int:
     try:
         hoje = datetime.now().strftime("%Y-%m-%d")
@@ -357,11 +381,13 @@ async def get_uso_diario(user_id: str) -> int:
     except Exception:
         return 0
 
+
 async def pode_gerar(user_id: str) -> tuple:
     plano = await get_plano_usuario(user_id)
     limite = 10 if plano == "pro" else 3
     uso = await get_uso_diario(user_id)
     return uso < limite, max(0, limite - uso)
+
 
 async def registrar_uso(user_id: str, action_type: str):
     try:
@@ -415,21 +441,51 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
         except Exception:
             dados_tendencias = ""
 
-    instrucoes_especificas = {
-        "youtube": """**YouTube:** ...""",
-        "tiktok": """**TikTok:** ...""",
-        "instagram": """**Instagram:** ...""",
-    }[req.plataforma]
+    instrucoes_especificas = ""
+    if req.plataforma == "youtube":
+        instrucoes_especificas = """
+**YouTube:**
+- Título: Objetivo, com a palavra-chave principal à esquerda e no **máximo 75 caracteres**. Deve gerar curiosidade.
+- Descrição: A peça central do SEO. Deve ser longa (**150–300 palavras**), funcionando como um mini artigo. Repita a palavra-chave principal **2–4 vezes** e inclua palavras-chave relacionadas **2–3 vezes**. Inclua uma chamada para ação (inscrever-se, comentar). Use de **3 a 5 hashtags** estratégicas no final da descrição.
+- Roteiro: Para um vídeo de formato longo ou médio. Deve ter uma introdução que resuma o valor, desenvolvimento detalhado e uma conclusão com call to action forte.
+"""
+    elif req.plataforma == "tiktok":
+        instrucoes_especificas = """
+**TikTok:**
+- Título (Texto na tela e legenda): Use **palavras-chave de cauda longa** e texto chamativo nos primeiros segundos para incentivar a retenção. A IA do TikTok analisa o texto na tela, então ele é crucial. Crie um gancho fortíssimo nos primeiros 3 segundos.
+- Descrição: Curta e direta, com as **palavras-chave mais importantes nos primeiros 100 caracteres**.
+- Hashtags: Use **poucas e boas**: 1-2 de tendência, 1-2 de nicho e 1 da sua marca (#ENGAJAÍ).
+- Roteiro: Para um vídeo curto e vertical. Deve ser dinâmico, com cortes rápidos, texto na tela (que serve como SEO). Foque em retenção e um gancho inicial explosivo.
+"""
+    elif req.plataforma == "instagram":
+        instrucoes_especificas = """
+**Instagram:**
+- Título (Texto na tela): Criativo, com uma **palavra-chave principal nos primeiros 3 segundos** do texto na tela. O objetivo é gerar "salvamentos" e conexão.
+- Descrição: A primeira frase é crucial (**gancho + SEO**). Use parágrafos, emojis e formatação para criar um texto escaneável. Inclua uma chamada para ação. Use de **3 a 5 hashtags** relevantes (de preferência no final ou no primeiro comentário).
+- Roteiro: Para um Reels. Deve ser visualmente atraente, com uma introdução que prenda a atenção imediatamente, desenvolvimento do valor e uma conclusão que incentive a salvar ou compartilhar.
+"""
 
     prompt_principal = f"""
 Você é um criador de conteúdo viral brasileiro especializado em {nome_plataforma}.
-Tema: "{req.tema}"
-Dados: {f"INÍCIO\n{dados_tendencias}\nFIM" if dados_tendencias else "Nenhum"}
+
+Tema do vídeo: "{req.tema}"
+
+Dados de tendências (use como inspiração):
+{f"INÍCIO DOS DADOS DE TENDÊNCIA:\n{dados_tendencias}\nFIM DOS DADOS DE TENDÊNCIA\n" if dados_tendencias else "Nenhum dado externo disponível."}
+
+INSTRUÇÕES ESTRITAS E ADAPTADAS À PLATAFORMA:
 {instrucoes_especificas}
+
 FORMATO DE RESPOSTA OBRIGATÓRIO:
-JSON com chaves: titulo, descricao, hashtags, roteiro, ideiaEdicao, tendencias.
-hashtags: string única (#tag1 #tag2). roteiro e ideiaEdicao strings longas.
-Gere agora para "{req.tema}".
+1. Responda APENAS com o JSON puro, sem introdução, sem markdown, sem comentários.
+2. O JSON DEVE ter exatamente as chaves: "titulo", "descricao", "hashtags", "roteiro", "ideiaEdicao", "tendencias".
+3. "hashtags": STRING ÚNICA com tags separadas por espaço, cada uma começando com #. NÃO USE ARRAY.
+4. "roteiro": STRING ÚNICA contendo o roteiro COMPLETO do vídeo. Divida em cenas com [CENA X – ABERTURA (0s-3s)], descreva enquadramento, falas, texto na tela (para SEO), sons e transições. O roteiro deve ser adaptado ao formato da plataforma (Shorts/Reels para TikTok/Instagram, vídeo mais longo para YouTube). NÃO USE ARRAY.
+5. "ideiaEdicao": STRING ÚNICA descritiva com no MÍNIMO 150 PALAVRAS, incluindo paleta de cores (códigos hex), fontes, filtros, música (gênero e BPM), efeitos sonoros, elementos gráficos.
+6. "tendencias": array de 3 strings curtas.
+7. Todas as strings devem estar em português brasileiro.
+
+Agora gere o JSON para o tema "{req.tema}" seguindo rigorosamente o formato e as instruções específicas para {nome_plataforma}.
 """
 
     resposta_groq = chamar_groq(prompt_principal)
@@ -485,16 +541,26 @@ async def gerar_sequencia(req: RequisicaoSequencia, request: Request):
     nome_plataforma = {"tiktok": "TikTok", "instagram": "Instagram", "youtube": "YouTube"}[req.plataforma]
 
     prompt = f"""
-Você é um estrategista de conteúdo para {nome_plataforma}. Gere 10 ideias DIVERSIFICADAS e COMPLEMENTARES após um vídeo sobre "{req.tema}".
-Cada ideia com "titulo" (máx 80 chars) e "temaCurto" (máx 100 chars).
-Regras: EVITE repetir enfoque. Explore curiosidades, mitos, listas, cases, etc. Coesão de série, mas cada vídeo independente.
-Responda APENAS JSON: {{"ideias": [{{"titulo": "...", "temaCurto": "..."}}, ...]}}
+Você é um estrategista de conteúdo para {nome_plataforma}. Um criador acabou de gerar um vídeo sobre "{req.tema}" e agora quer planejar os próximos 10 vídeos, todos relacionados ao universo do tema, mas com abordagens DIVERSIFICADAS e COMPLEMENTARES.
+
+Gere uma lista com EXATAMENTE 10 ideias. Cada ideia deve ter:
+- "titulo": um título curto e chamativo (máx. 80 caracteres).
+- "temaCurto": uma frase curta (máx. 100 caracteres) descrevendo o tema específico daquele vídeo.
+
+REGRAS IMPORTANTES:
+- EVITE repetir o mesmo enfoque. Explore ângulos diferentes: curiosidades, mitos, passo a passo, erros comuns, ferramentas, entrevistas, desafios, listas, cases reais, tendências, etc.
+- As ideias devem formar uma SÉRIE COESA, mas cada vídeo deve ter valor assistindo sozinho.
+- Otimize os títulos para o algoritmo do {nome_plataforma}.
+- Inclua ganchos e palavras-chave relevantes.
+
+Responda APENAS com um JSON puro contendo a chave "ideias", que é um array de objetos com "titulo" e "temaCurto". Exemplo:
+{{"ideias": [{{"titulo": "...", "temaCurto": "..."}}, ...]}}
 """
 
     resposta = chamar_groq(prompt)
     dados = limpar_e_extrair_json(resposta)
     ideias = dados.get("ideias", [])
-    if not isinstance(ideias, list) or len(ideias) < 1:
+    if not isinstance(ideias, list) or len(ideias) == 0:
         ideias = [{"titulo": f"{req.tema} - Parte {i+1}", "temaCurto": f"Continuação de {req.tema}"} for i in range(10)]
     while len(ideias) < 10:
         ideias.append({"titulo": f"{req.tema} - Extra {len(ideias)+1}", "temaCurto": f"Mais sobre {req.tema}"})
