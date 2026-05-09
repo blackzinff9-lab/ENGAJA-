@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Sparkles, ArrowRight, Loader2, Server, 
-  TrendingUp, Target, Copy, CheckCircle
+  TrendingUp, Target, Copy, CheckCircle, Crown, AlertCircle
 } from 'lucide-react';
 import { Platform, PLATFORM_CONFIG } from './types';
 import { StatusBackend } from './api';
@@ -12,6 +12,7 @@ interface DashboardProps {
   backendOk: boolean;
   statusBackend: StatusBackend | null;
   conteudoGerado: any;
+  usuario: any; // <- NOVA PROP
 }
 
 const sugestoesTemas = [
@@ -21,11 +22,12 @@ const sugestoesTemas = [
   { emoji: "💰", rotulo: "Renda extra", valor: "como ganhar renda extra online" },
 ];
 
-export default function Dashboard({ aoGerar, carregando, backendOk, statusBackend, conteudoGerado }: DashboardProps) {
+export default function Dashboard({ aoGerar, carregando, backendOk, statusBackend, conteudoGerado, usuario }: DashboardProps) {
   const [tema, setTema] = useState('');
   const [plataforma, setPlataforma] = useState<Platform | null>(null);
   const [focado, setFocado] = useState(false);
   const [copiado, setCopiado] = useState<string | null>(null);
+  const [erroLimite, setErroLimite] = useState<string | null>(null);
 
   // Estados para a sequência de ideias
   const [sequenciaIdeias, setSequenciaIdeias] = useState<any[] | null>(null);
@@ -34,14 +36,16 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
   const [conteudoExtra, setConteudoExtra] = useState<any>(null);
   const [carregandoExtra, setCarregandoExtra] = useState(false);
 
-  const aoEnviar = (e: React.FormEvent) => {
+  const aoEnviar = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (tema.trim() && plataforma) {
-      aoGerar(tema.trim(), plataforma);
-      // Resetar a sequência ao gerar novo conteúdo principal
-      setSequenciaIdeias(null);
-      setIdeiaExpandida(null);
-      setConteudoExtra(null);
+    if (!tema.trim() || !plataforma) return;
+    setErroLimite(null);
+    try {
+      await aoGerar(tema.trim(), plataforma);
+    } catch (err: any) {
+      if (err.message && err.message.includes("Limite")) {
+        setErroLimite(err.message);
+      }
     }
   };
 
@@ -60,16 +64,21 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
       ].filter(Boolean).join('  •  ')
     : 'Verificando serviços...';
 
-  // Função para gerar as 10 ideias
   const gerarSequencia = async () => {
     if (!tema || !plataforma) return;
     setCarregandoSequencia(true);
     try {
+      const token = localStorage.getItem('token');
       const resposta = await fetch('/api/gerar-sequencia', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ tema, plataforma }),
       });
+      if (!resposta.ok) {
+        const err = await resposta.json();
+        alert(err.detail);
+        return;
+      }
       const dados = await resposta.json();
       setSequenciaIdeias(dados.ideias);
     } catch (erro) {
@@ -79,15 +88,15 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
     }
   };
 
-  // Função para expandir uma ideia e gerar o conteúdo completo
   const expandirIdeia = async (index: number, temaCurto: string) => {
     setIdeiaExpandida(index);
     setCarregandoExtra(true);
     setConteudoExtra(null);
     try {
+      const token = localStorage.getItem('token');
       const resposta = await fetch('/api/gerar', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ tema: temaCurto, plataforma }),
       });
       const dados = await resposta.json();
@@ -99,6 +108,28 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
     }
   };
 
+  const handleAssinarPro = async () => {
+    if (!usuario || !usuario.email) {
+      alert('Usuário não autenticado.');
+      return;
+    }
+    try {
+      const resposta = await fetch('/api/assinar-pro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: usuario.sub, email: usuario.email }),
+      });
+      const dados = await resposta.json();
+      if (dados.init_point) {
+        window.location.href = dados.init_point;
+      } else {
+        alert('Erro ao iniciar assinatura.');
+      }
+    } catch (erro) {
+      alert('Erro ao conectar com Mercado Pago.');
+    }
+  };
+
   return (
     <div className="w-full max-w-5xl mx-auto">
       {/* Cabeçalho */}
@@ -107,6 +138,23 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
           <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
           <span>Tendências reais • IA real • Resultados profissionais</span>
         </div>
+        {/* Indicador de plano e upgrade */}
+        {usuario && (
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <span className="text-xs px-3 py-1 rounded-full bg-white/5 text-white/60">
+              Plano: {usuario.plano || 'free'}
+            </span>
+            {usuario.plano !== 'pro' && (
+              <button
+                onClick={handleAssinarPro}
+                className="flex items-center gap-1 text-xs px-3 py-1 rounded-full bg-yellow-400/20 text-yellow-400 font-bold hover:bg-yellow-400/30 transition"
+              >
+                <Crown className="w-3 h-3" />
+                Assinar Pro (R$14,97/mês)
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Status do Servidor */}
@@ -138,7 +186,6 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
           />
         </div>
 
-        {/* Sugestões */}
         <div className="flex flex-wrap gap-2">
           {sugestoesTemas.map((sugestao) => (
             <button
@@ -153,7 +200,6 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
           ))}
         </div>
 
-        {/* Plataformas */}
         <div className="grid grid-cols-3 gap-3">
           {(Object.keys(PLATFORM_CONFIG) as Platform[]).map((chave) => {
             const info = PLATFORM_CONFIG[chave];
@@ -181,7 +227,6 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
           })}
         </div>
 
-        {/* Botão Gerar */}
         <button
           type="submit"
           disabled={!tema.trim() || !plataforma || carregando}
@@ -204,7 +249,12 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             </>
           )}
         </button>
-
+        {erroLimite && (
+          <p className="text-xs text-amber-400/70 text-center flex items-center justify-center gap-1">
+            <AlertCircle className="w-3 h-3" />
+            {erroLimite}
+          </p>
+        )}
         {!backendOk && (
           <p className="text-xs text-amber-400/70 text-center">
             ⚠️ Serviços ainda não verificados – o conteúdo pode demorar mais.
@@ -292,8 +342,8 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             <p className="text-white/80">{conteudoGerado.ideiaEdicao}</p>
           </div>
 
-          {/* Botão de Sequência Premium */}
-          {!sequenciaIdeias && (
+          {/* Botão de Sequência Premium (EXCLUSIVO PRO) */}
+          {usuario?.plano === 'pro' && !sequenciaIdeias && (
             <div className="mt-10 text-center">
               <button
                 onClick={gerarSequencia}
@@ -348,7 +398,6 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
                         )}
                       </button>
                     </div>
-                    {/* Área de resultado expandido para esta ideia */}
                     {ideiaExpandida === idx && conteudoExtra && (
                       <div className="mt-4 pt-4 border-t border-white/10 space-y-3 animate-fade-in">
                         <div className="bg-white/5 rounded-xl p-3">
@@ -382,4 +431,4 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
       )}
     </div>
   );
-    }
+          }
