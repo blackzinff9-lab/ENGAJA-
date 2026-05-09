@@ -3,12 +3,12 @@ import Dashboard from './Dashboard';
 import PaginaLogin from './LoginPage';
 import { Platform } from './types';
 import { StatusBackend } from './api';
-import { 
-  Zap, 
-  Sparkles, 
+import {
+  Zap,
+  Sparkles,
   CheckCircle2,
-  Menu, 
-  X 
+  Menu,
+  X
 } from 'lucide-react';
 
 function App() {
@@ -25,24 +25,40 @@ function App() {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     if (token) {
-      // Salvar token no localStorage e limpar URL
       localStorage.setItem('token', token);
       const nome = params.get('nome') || 'Usuário';
       const email = params.get('email') || '';
       const avatar = params.get('avatar') || '';
-      setUsuario({ nome, email, avatar });
-      // Limpar parâmetros da URL
+      // Agora também obtém o sub e busca o plano do usuário
+      fetch(`/api/auth/verificar?token=${token}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.valido) {
+            setUsuario({
+              nome: data.nome || nome,
+              email: data.email || email,
+              avatar: data.avatar || avatar,
+              sub: data.sub,   // ID do Supabase
+              plano: data.plano || 'free'  // plano retornado pelo backend
+            });
+          }
+        })
+        .catch(() => {});
       window.history.replaceState({}, document.title, '/');
     } else {
-      // Verificar se há token salvo
       const savedToken = localStorage.getItem('token');
       if (savedToken) {
-        // Validar token com o back-end
         fetch(`/api/auth/verificar?token=${savedToken}`)
           .then(res => res.json())
           .then(data => {
             if (data.valido) {
-              setUsuario({ nome: data.nome, email: data.email, avatar: data.avatar });
+              setUsuario({
+                nome: data.nome,
+                email: data.email,
+                avatar: data.avatar,
+                sub: data.sub,
+                plano: data.plano || 'free'
+              });
             } else {
               localStorage.removeItem('token');
             }
@@ -72,21 +88,28 @@ function App() {
     setCarregando(true);
     setConteudoGerado(null);
     try {
+      const token = localStorage.getItem('token');
       const resposta = await fetch('/api/gerar', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`  // envia o token para controle de limite
+        },
         body: JSON.stringify({ tema, plataforma }),
       });
+      if (!resposta.ok) {
+        const erro = await resposta.json();
+        throw new Error(erro.detail || 'Erro ao gerar conteúdo');
+      }
       const resultado = await resposta.json();
       setConteudoGerado(resultado);
-    } catch (erro) {
-      alert('Erro ao gerar conteúdo. Tente novamente.');
+    } catch (erro: any) {
+      alert(erro.message || 'Erro ao gerar conteúdo. Tente novamente.');
     } finally {
       setCarregando(false);
     }
   };
 
-  // Função chamada quando o login é bem-sucedido (Google ou Demo)
   const handleLoginSucesso = (nome: string, email: string, avatar: string) => {
     setUsuario({ nome, email, avatar });
   };
@@ -103,29 +126,23 @@ function App() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Se não estiver logado, mostra a PaginaLogin (seu componente já existente)
   if (!usuario) {
     return (
-      <PaginaLogin 
-        aoEntrar={handleLoginSucesso} 
-        statusBackend={statusBackend} 
+      <PaginaLogin
+        aoEntrar={handleLoginSucesso}
+        statusBackend={statusBackend}
       />
     );
   }
 
-  // Logado — mostra o app completo
   return (
     <div className="min-h-screen bg-gray-950 text-white font-sans selection:bg-indigo-500/30">
-      {/* Fundo sutil com gradientes */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/10 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-500/10 rounded-full blur-[120px]" />
       </div>
 
-      {/* Navbar fixa */}
-      <nav className={`fixed top-0 w-full z-50 transition-all duration-300 border-b ${
-        scrolled ? 'bg-gray-900/80 backdrop-blur-lg border-gray-800 py-4' : 'bg-transparent border-transparent py-6'
-      }`}>
+      <nav className={`fixed top-0 w-full z-50 transition-all duration-300 border-b ${scrolled ? 'bg-gray-900/80 backdrop-blur-lg border-gray-800 py-4' : 'bg-transparent border-transparent py-6'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
@@ -137,7 +154,6 @@ function App() {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Avatar e nome do usuário */}
             <div className="hidden md:flex items-center gap-2">
               {usuario.avatar && (
                 <img src={usuario.avatar} alt={usuario.nome} className="w-8 h-8 rounded-full" />
@@ -160,7 +176,6 @@ function App() {
 
       <main className="relative z-10 pt-32 pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Hero */}
           <section className="text-center mb-16">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold mb-8 tracking-wide uppercase">
               <Sparkles className="w-4 h-4" />
@@ -191,13 +206,14 @@ function App() {
             </div>
           </section>
 
-          {/* Dashboard com formulário e resultado */}
-          <Dashboard 
+          {/* Dashboard agora recebe a prop usuario */}
+          <Dashboard
             aoGerar={aoGerar}
             carregando={carregando}
             backendOk={backendOk}
             statusBackend={statusBackend}
             conteudoGerado={conteudoGerado}
+            usuario={usuario}
           />
         </div>
       </main>
