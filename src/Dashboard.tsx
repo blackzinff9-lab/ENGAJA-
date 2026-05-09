@@ -12,7 +12,7 @@ interface DashboardProps {
   backendOk: boolean;
   statusBackend: StatusBackend | null;
   conteudoGerado: any;
-  usuario: any; // <- NOVA PROP
+  usuario: any; // deve conter: email, sub, plano, nome, avatar (opcional)
 }
 
 const sugestoesTemas = [
@@ -120,6 +120,11 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
         body: JSON.stringify({ user_id: usuario.sub, email: usuario.email }),
       });
       const dados = await resposta.json();
+      if (!resposta.ok) {
+        // Mostra a mensagem de erro real do servidor
+        alert(dados.detail || 'Erro ao criar assinatura');
+        return;
+      }
       if (dados.init_point) {
         window.location.href = dados.init_point;
       } else {
@@ -270,42 +275,30 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             Seu Conteúdo Viral
           </h2>
 
-          {/* Título */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Título</span>
-              <button 
-                onClick={() => copiarTexto(conteudoGerado.titulo, 'titulo')}
-                className="text-white/30 hover:text-white transition"
-              >
+              <button onClick={() => copiarTexto(conteudoGerado.titulo, 'titulo')} className="text-white/30 hover:text-white transition">
                 {copiado === 'titulo' ? <CheckCircle className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
               </button>
             </div>
             <p className="text-white text-lg font-semibold">{conteudoGerado.titulo}</p>
           </div>
 
-          {/* Descrição */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Descrição</span>
-              <button 
-                onClick={() => copiarTexto(conteudoGerado.descricao, 'descricao')}
-                className="text-white/30 hover:text-white transition"
-              >
+              <button onClick={() => copiarTexto(conteudoGerado.descricao, 'descricao')} className="text-white/30 hover:text-white transition">
                 {copiado === 'descricao' ? <CheckCircle className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
               </button>
             </div>
             <p className="text-white/80">{conteudoGerado.descricao}</p>
           </div>
 
-          {/* Hashtags */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Hashtags</span>
-              <button 
-                onClick={() => copiarTexto(conteudoGerado.hashtags, 'hashtags')}
-                className="text-white/30 hover:text-white transition"
-              >
+              <button onClick={() => copiarTexto(conteudoGerado.hashtags, 'hashtags')} className="text-white/30 hover:text-white transition">
                 {copiado === 'hashtags' ? <CheckCircle className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
               </button>
             </div>
@@ -314,28 +307,20 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             </p>
           </div>
 
-          {/* Roteiro */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Roteiro</span>
-              <button 
-                onClick={() => copiarTexto(conteudoGerado.roteiro, 'roteiro')}
-                className="text-white/30 hover:text-white transition"
-              >
+              <button onClick={() => copiarTexto(conteudoGerado.roteiro, 'roteiro')} className="text-white/30 hover:text-white transition">
                 {copiado === 'roteiro' ? <CheckCircle className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
               </button>
             </div>
             <p className="text-white/80 whitespace-pre-line">{conteudoGerado.roteiro}</p>
           </div>
 
-          {/* Ideia de Edição */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Ideia de Edição</span>
-              <button 
-                onClick={() => copiarTexto(conteudoGerado.ideiaEdicao, 'ideiaEdicao')}
-                className="text-white/30 hover:text-white transition"
-              >
+              <button onClick={() => copiarTexto(conteudoGerado.ideiaEdicao, 'ideiaEdicao')} className="text-white/30 hover:text-white transition">
                 {copiado === 'ideiaEdicao' ? <CheckCircle className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
               </button>
             </div>
@@ -370,7 +355,6 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             </div>
           )}
 
-          {/* Lista de Ideias da Sequência */}
           {sequenciaIdeias && (
             <div className="mt-10 space-y-4">
               <h2 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -431,4 +415,4 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
       )}
     </div>
   );
-          }
+}
