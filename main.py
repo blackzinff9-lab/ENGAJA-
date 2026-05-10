@@ -398,8 +398,7 @@ async def registrar_uso(user_id: str, action_type: str):
         }).execute()
     except Exception as e:
         print(f"[Supabase] Erro ao registrar uso: {e}")
-
-
+        
 # ==========================================
 # ENDPOINT DE GERAÇÃO DE CONTEÚDO
 # ==========================================
@@ -411,13 +410,11 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
     if req.plataforma not in ("tiktok", "instagram", "youtube"):
         raise HTTPException(status_code=400, detail="Plataforma inválida")
 
-    # Autenticação opcional para usuários não logados (teste), mas controle de limite exige login
     user_id = None
     auth = request.headers.get("Authorization")
     if auth and auth.startswith("Bearer "):
         user_id = get_current_user(request)
 
-    # Se usuário logado, verificar limite diário
     if user_id:
         pode, restante = await pode_gerar(user_id)
         if not pode:
