@@ -3,13 +3,7 @@ import Dashboard from './Dashboard';
 import PaginaLogin from './LoginPage';
 import { Platform } from './types';
 import { StatusBackend } from './api';
-import {
-  Zap,
-  Sparkles,
-  CheckCircle2,
-  Menu,
-  X
-} from 'lucide-react';
+import { Zap, Sparkles, CheckCircle2, Menu, X } from 'lucide-react';
 
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -18,9 +12,18 @@ function App() {
   const [backendOk, setBackendOk] = useState(false);
   const [statusBackend, setStatusBackend] = useState<StatusBackend | null>(null);
   const [conteudoGerado, setConteudoGerado] = useState<any>(null);
-  const [usuario, setUsuario] = useState<any>(null); // dados do usuário logado
+  const [usuario, setUsuario] = useState<any>(null);
 
-  // Verifica se há token JWT na URL (após login Google) ou salvo
+  // Função auxiliar para extrair sub do token JWT se necessário
+  const getUserIdFromToken = (token: string) => {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.sub || payload.email;
+    } catch {
+      return null;
+    }
+  };
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
@@ -29,17 +32,17 @@ function App() {
       const nome = params.get('nome') || 'Usuário';
       const email = params.get('email') || '';
       const avatar = params.get('avatar') || '';
-      // Agora também obtém o sub e busca o plano do usuário
       fetch(`/api/auth/verificar?token=${token}`)
         .then(res => res.json())
         .then(data => {
           if (data.valido) {
+            const sub = data.sub || getUserIdFromToken(token);
             setUsuario({
               nome: data.nome || nome,
               email: data.email || email,
               avatar: data.avatar || avatar,
-              sub: data.sub,   // ID do Supabase
-              plano: data.plano || 'free'  // plano retornado pelo backend
+              sub: sub,
+              plano: data.plano || 'free'
             });
           }
         })
@@ -52,11 +55,12 @@ function App() {
           .then(res => res.json())
           .then(data => {
             if (data.valido) {
+              const sub = data.sub || getUserIdFromToken(savedToken);
               setUsuario({
                 nome: data.nome,
                 email: data.email,
                 avatar: data.avatar,
-                sub: data.sub,
+                sub: sub,
                 plano: data.plano || 'free'
               });
             } else {
@@ -68,7 +72,6 @@ function App() {
     }
   }, []);
 
-  // Verifica status dos serviços
   useEffect(() => {
     const verificarServicos = async () => {
       try {
@@ -93,7 +96,7 @@ function App() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`  // envia o token para controle de limite
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ tema, plataforma }),
       });
@@ -104,13 +107,15 @@ function App() {
       const resultado = await resposta.json();
       setConteudoGerado(resultado);
     } catch (erro: any) {
-      alert(erro.message || 'Erro ao gerar conteúdo. Tente novamente.');
+      alert(erro.message);
     } finally {
       setCarregando(false);
     }
   };
 
   const handleLoginSucesso = (nome: string, email: string, avatar: string) => {
+    // Após login demo, o sub pode não existir; a função getUserIdFromToken não se aplica aqui,
+    // mas para login Google o fluxo já garante o token.
     setUsuario({ nome, email, avatar });
   };
 
@@ -206,7 +211,6 @@ function App() {
             </div>
           </section>
 
-          {/* Dashboard agora recebe a prop usuario */}
           <Dashboard
             aoGerar={aoGerar}
             carregando={carregando}
