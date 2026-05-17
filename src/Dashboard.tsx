@@ -66,7 +66,7 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
 
   const gerarSequencia = async () => {
     if (!tema || !plataforma) return;
-    // Se não for Pro, exibe o alerta e redireciona para assinatura
+    // Se não for Pro, redireciona para assinatura
     if (usuario?.plano !== 'pro') {
       handleAssinarPro();
       return;
@@ -372,45 +372,59 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             <p className="text-white/80">{conteudoGerado.ideiaEdicao}</p>
           </div>
 
-          {/* BOTÃO GERAR 10 IDEIAS (SEMPRE VISÍVEL, COM CADEADO SE NÃO FOR PRO) */}
+          {/* BOTÃO GERAR 10 IDEIAS (SEMPRE DOURADO, COM CORRENTES SE FREE) */}
           {!sequenciaIdeias && (
             <div className="mt-10 text-center">
               {usuario?.plano === 'pro' ? (
                 /* Versão desbloqueada para Pro */
-                <button
-                  onClick={gerarSequencia}
-                  disabled={carregandoSequencia}
-                  className="relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-bold text-lg bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 text-gray-900 shadow-xl shadow-amber-500/30 hover:shadow-amber-500/50 hover:scale-105 transition-all disabled:opacity-70 disabled:cursor-not-allowed overflow-hidden group"
-                >
-                  <span className="absolute inset-0 bg-gradient-to-r from-yellow-300 to-amber-400 opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                  {carregandoSequencia ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin relative z-10" />
-                      <span className="relative z-10">Gerando sequência...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Unlock className="w-5 h-5 relative z-10" />
-                      <span className="relative z-10">Gerar 10 Ideias Futuras</span>
-                      <ArrowRight className="w-5 h-5 relative z-10" />
-                    </>
-                  )}
-                </button>
+                <div>
+                  <button
+                    onClick={gerarSequencia}
+                    disabled={carregandoSequencia}
+                    className="relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-bold text-lg bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 text-gray-900 shadow-xl shadow-amber-500/30 hover:shadow-amber-500/50 hover:scale-105 transition-all disabled:opacity-70 disabled:cursor-not-allowed overflow-hidden group"
+                  >
+                    <span className="absolute inset-0 bg-gradient-to-r from-yellow-300 to-amber-400 opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                    {carregandoSequencia ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin relative z-10" />
+                        <span className="relative z-10">Gerando sequência...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Unlock className="w-5 h-5 relative z-10" />
+                        <span className="relative z-10">Gerar 10 Ideias Futuras</span>
+                        <ArrowRight className="w-5 h-5 relative z-10" />
+                      </>
+                    )}
+                  </button>
+                  <p className="text-xs text-amber-400/70 mt-2">
+                    ✨ Gere ideias para os seus 10 próximos vídeos, interligados e otimizados para o algoritmo.
+                  </p>
+                </div>
               ) : (
-                /* Versão bloqueada para Free */
-                <button
-                  onClick={gerarSequencia}
-                  className="relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-bold text-lg bg-gray-700/50 text-gray-400 border-2 border-gray-500/30 shadow-xl shadow-gray-500/10 hover:scale-105 transition-all overflow-hidden group cursor-pointer"
-                >
-                  <Lock className="w-5 h-5 text-gray-400" />
-                  <span className="relative z-10">Gerar 10 Ideias Futuras</span>
-                  <span className="text-xs bg-gray-600/50 px-2 py-0.5 rounded-full text-amber-400 ml-2">PRO</span>
-                </button>
-              )}
-              {usuario?.plano !== 'pro' && (
-                <p className="text-xs text-gray-400 mt-2">
-                  🔒 Exclusivo para assinantes Pro. <button type="button" onClick={handleAssinarPro} className="underline text-amber-400 hover:text-amber-300">Assine agora</button>
-                </p>
+                /* Versão bloqueada para Free (dourado com correntes) */
+                <div>
+                  <div className="relative inline-block">
+                    {/* Correntes visuais (sobreposição) */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 rounded-2xl opacity-40 blur-sm"></div>
+                    <button
+                      onClick={gerarSequencia}
+                      className="relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-bold text-lg bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 text-gray-900 shadow-xl shadow-amber-500/30 hover:scale-105 transition-all overflow-hidden group"
+                    >
+                      <span className="absolute inset-0 bg-black/40 rounded-2xl z-10"></span>
+                      <Lock className="w-5 h-5 relative z-20 text-white" />
+                      <span className="relative z-20 text-white/90">Gerar 10 Ideias Futuras</span>
+                      <span className="relative z-20 text-xs bg-black/40 px-2 py-0.5 rounded-full text-amber-400 ml-2">PRO</span>
+                    </button>
+                    {/* Ícones de corrente decorativos */}
+                    <div className="absolute -top-2 -right-2 z-30">
+                      <Lock className="w-5 h-5 text-amber-400 drop-shadow-lg" />
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2">
+                    🔒 Gere ideias para os seus 10 próximos vídeos interligados. <button type="button" onClick={handleAssinarPro} className="underline text-amber-400 hover:text-amber-300">Assine o Pro para desbloquear</button>
+                  </p>
+                </div>
               )}
             </div>
           )}
@@ -475,4 +489,5 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
       )}
     </div>
   );
-                        }
+          }
+      
