@@ -25,6 +25,7 @@ import os
 import jwt
 import urllib.parse
 import re
+import traceback
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -148,12 +149,14 @@ async def google_callback(request: Request, code: str = Query(...)):
         user_id = user_info.get("sub", "")
         if user_id:
             try:
+                print(f"[DEBUG] Upsert user: id={user_id}, email={email}")
                 supabase.table("users").upsert({
                     "id": user_id,
                     "email": email,
                 }).execute()
             except Exception as e:
-                print(f"[Supabase] Erro ao upsert user: {e}")
+                print(f"[Supabase] Erro ao upsert user:")
+                traceback.print_exc()
 
         payload = {
             "sub": user_id,
@@ -397,13 +400,17 @@ async def pode_gerar(user_id: str) -> tuple:
 
 async def registrar_uso(user_id: str, action_type: str):
     try:
-        supabase.table("usage_logs").insert({
+        data = {
             "user_id": user_id,
             "action_type": action_type,
             "created_at": datetime.now().isoformat()
-        }).execute()
+        }
+        print(f"[DEBUG] Tentando inserir em usage_logs: {data}")
+        result = supabase.table("usage_logs").insert(data).execute()
+        print(f"[DEBUG] Inserção bem-sucedida: {result}")
     except Exception as e:
-        print(f"[Supabase] Erro ao registrar uso: {e}")
+        print(f"[Supabase] Erro ao registrar uso:")
+        traceback.print_exc()
         
 # ==========================================
 # VERIFICAÇÃO DE STATUS DE ASSINATURA
