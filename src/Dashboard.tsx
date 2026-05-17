@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Sparkles, ArrowRight, Loader2, Server, 
-  TrendingUp, Target, Copy, CheckCircle, Crown, AlertCircle
+  TrendingUp, Target, Copy, CheckCircle, Crown, AlertCircle, Lock, Unlock
 } from 'lucide-react';
 import { Platform, PLATFORM_CONFIG } from './types';
 import { StatusBackend } from './api';
@@ -66,6 +66,11 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
 
   const gerarSequencia = async () => {
     if (!tema || !plataforma) return;
+    // Se não for Pro, exibe o alerta e redireciona para assinatura
+    if (usuario?.plano !== 'pro') {
+      handleAssinarPro();
+      return;
+    }
     setCarregandoSequencia(true);
     try {
       const token = localStorage.getItem('token');
@@ -109,14 +114,12 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
   };
 
   const handleAssinarPro = async () => {
-    console.log('Enviando para assinatura:', { user_id: usuario?.sub, email: usuario?.email });
-    
     if (!usuario || !usuario.email) {
-      alert('Usuário não autenticado.');
+      alert('Faça login para assinar o plano Pro.');
       return;
     }
     if (!usuario.sub) {
-      alert('ID do usuário (sub) não encontrado. Faça logout e login novamente.');
+      alert('ID do usuário não encontrado. Faça logout e login novamente.');
       return;
     }
     try {
@@ -148,33 +151,57 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
           <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
           <span>Tendências reais • IA real • Resultados profissionais</span>
         </div>
+
         {/* Indicador de plano e upgrade */}
         {usuario && (
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <span className="text-xs px-3 py-1 rounded-full bg-white/5 text-white/60">
-              Plano: {usuario.plano || 'free'}
-            </span>
+          <div className="flex flex-col items-center gap-3 mb-6">
+            <div className="flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-white/5 text-white/60">
+              Plano atual: <span className="font-bold text-white">{usuario.plano === 'pro' ? 'PRO' : 'FREE'}</span>
+            </div>
+
+            {/* BENEFÍCIOS DO PRO (aparece apenas para FREE) */}
             {usuario.plano !== 'pro' && (
-              <button
-                onClick={handleAssinarPro}
-                className="flex items-center gap-1 text-xs px-3 py-1 rounded-full bg-yellow-400/20 text-yellow-400 font-bold hover:bg-yellow-400/30 transition"
-              >
-                <Crown className="w-3 h-3" />
-                Assinar Pro (R$14,97/mês)
-              </button>
+              <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-4 max-w-md mx-auto">
+                <h3 className="text-sm font-bold text-amber-400 mb-2 flex items-center gap-1">
+                  <Crown className="w-4 h-4" /> Vantagens do Plano Pro
+                </h3>
+                <ul className="text-xs text-gray-300 space-y-1 text-left">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-3 h-3 text-emerald-400 mt-0.5 flex-shrink-0" />
+                    Até <strong className="text-white">10 ideias por dia</strong> (3x mais que o Free)
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-3 h-3 text-emerald-400 mt-0.5 flex-shrink-0" />
+                    Gere <strong className="text-white">10 ideias futuras</strong> em sequência
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-3 h-3 text-emerald-400 mt-0.5 flex-shrink-0" />
+                    Roteiros <strong className="text-white">ainda mais detalhados</strong> e otimizados
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-3 h-3 text-emerald-400 mt-0.5 flex-shrink-0" />
+                    Tenha acesso a <strong className="text-white">funcionalidades exclusivas</strong>
+                  </li>
+                </ul>
+              </div>
             )}
           </div>
         )}
 
-        {/* BLOCO DE DEBUG TEMPORÁRIO */}
-        {usuario && (
-          <div className="text-xs text-gray-400 mb-2 bg-gray-800/50 rounded p-2">
-            <p>Debug - Dados do usuário:</p>
-            <p>sub: {usuario.sub || '❌ NÃO ENCONTRADO'}</p>
-            <p>email: {usuario.email || '❌ NÃO ENCONTRADO'}</p>
+        {/* BOTÃO ASSINAR PRO (apenas se não for Pro) */}
+        {usuario && usuario.plano !== 'pro' && (
+          <div className="mb-6">
+            <button
+              onClick={handleAssinarPro}
+              className="relative inline-flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 text-gray-900 shadow-xl shadow-amber-500/30 hover:shadow-amber-500/50 hover:scale-105 transition-all overflow-hidden group"
+            >
+              <span className="absolute inset-0 bg-gradient-to-r from-yellow-300 to-amber-400 opacity-0 group-hover:opacity-100 transition-opacity"></span>
+              <Crown className="w-5 h-5 relative z-10" />
+              <span className="relative z-10">Assinar Pro (R$14,97/mês)</span>
+              <ArrowRight className="w-5 h-5 relative z-10" />
+            </button>
           </div>
         )}
-        {/* FIM DO BLOCO DE DEBUG */}
       </div>
 
       {/* Status do Servidor */}
@@ -279,7 +306,7 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
           </p>
         )}
       </form>
-
+      
       {/* EXIBIÇÃO DO CONTEÚDO GERADO */}
       {conteudoGerado && (
         <div className="mt-10 space-y-6 animate-fade-in">
@@ -345,31 +372,46 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             <p className="text-white/80">{conteudoGerado.ideiaEdicao}</p>
           </div>
 
-          {/* Botão de Sequência Premium (EXCLUSIVO PRO) */}
-          {usuario?.plano === 'pro' && !sequenciaIdeias && (
+          {/* BOTÃO GERAR 10 IDEIAS (SEMPRE VISÍVEL, COM CADEADO SE NÃO FOR PRO) */}
+          {!sequenciaIdeias && (
             <div className="mt-10 text-center">
-              <button
-                onClick={gerarSequencia}
-                disabled={carregandoSequencia}
-                className="relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-bold text-lg bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 text-gray-900 shadow-xl shadow-amber-500/30 hover:shadow-amber-500/50 hover:scale-105 transition-all disabled:opacity-70 disabled:cursor-not-allowed overflow-hidden group"
-              >
-                <span className="absolute inset-0 bg-gradient-to-r from-yellow-300 to-amber-400 opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                {carregandoSequencia ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin relative z-10" />
-                    <span className="relative z-10">Gerando sequência...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-5 h-5 relative z-10" />
-                    <span className="relative z-10">Gerar 10 Ideias Futuras</span>
-                    <ArrowRight className="w-5 h-5 relative z-10" />
-                  </>
-                )}
-              </button>
-              <p className="text-xs text-amber-400/70 mt-2">
-                Planeje seus próximos 10 vídeos interligados e mantenha seu conteúdo coeso.
-              </p>
+              {usuario?.plano === 'pro' ? (
+                /* Versão desbloqueada para Pro */
+                <button
+                  onClick={gerarSequencia}
+                  disabled={carregandoSequencia}
+                  className="relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-bold text-lg bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 text-gray-900 shadow-xl shadow-amber-500/30 hover:shadow-amber-500/50 hover:scale-105 transition-all disabled:opacity-70 disabled:cursor-not-allowed overflow-hidden group"
+                >
+                  <span className="absolute inset-0 bg-gradient-to-r from-yellow-300 to-amber-400 opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                  {carregandoSequencia ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin relative z-10" />
+                      <span className="relative z-10">Gerando sequência...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="w-5 h-5 relative z-10" />
+                      <span className="relative z-10">Gerar 10 Ideias Futuras</span>
+                      <ArrowRight className="w-5 h-5 relative z-10" />
+                    </>
+                  )}
+                </button>
+              ) : (
+                /* Versão bloqueada para Free */
+                <button
+                  onClick={gerarSequencia}
+                  className="relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-bold text-lg bg-gray-700/50 text-gray-400 border-2 border-gray-500/30 shadow-xl shadow-gray-500/10 hover:scale-105 transition-all overflow-hidden group cursor-pointer"
+                >
+                  <Lock className="w-5 h-5 text-gray-400" />
+                  <span className="relative z-10">Gerar 10 Ideias Futuras</span>
+                  <span className="text-xs bg-gray-600/50 px-2 py-0.5 rounded-full text-amber-400 ml-2">PRO</span>
+                </button>
+              )}
+              {usuario?.plano !== 'pro' && (
+                <p className="text-xs text-gray-400 mt-2">
+                  🔒 Exclusivo para assinantes Pro. <button type="button" onClick={handleAssinarPro} className="underline text-amber-400 hover:text-amber-300">Assine agora</button>
+                </p>
+              )}
             </div>
           )}
 
@@ -433,4 +475,4 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
       )}
     </div>
   );
-      }
+                        }
