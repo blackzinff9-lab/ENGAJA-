@@ -93,14 +93,20 @@ async def google_callback(request: Request, code: str = Query(...)):
         email = user.get("email", "")
         avatar = user.get("picture", f"https://ui-avatars.com/api/?name={urllib.parse.quote(nome)}&background=6366f1&color=fff&size=128&bold=true")
         user_id = user.get("sub", "")
+        print(f"[DEBUG Google] user_id obtido: {user_id}", flush=True)  # NOVO LOG
         if user_id:
             try:
                 supabase.table("users").upsert({"id": user_id, "email": email}).execute()
             except Exception as e:
                 print(f"[Supabase] Erro upsert user: {e}")
+        # Garantir que o payload do JWT tenha o 'sub'
         payload = {
-            "sub": user_id, "nome": nome, "email": email, "avatar": avatar,
-            "exp": datetime.now(timezone.utc) + timedelta(days=7), "iat": datetime.now(timezone.utc),
+            "sub": user_id,
+            "nome": nome,
+            "email": email,
+            "avatar": avatar,
+            "exp": datetime.now(timezone.utc) + timedelta(days=7),
+            "iat": datetime.now(timezone.utc),
         }
         token_jwt = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
         params = urllib.parse.urlencode({"token": token_jwt, "nome": nome, "email": email, "avatar": avatar})
@@ -139,11 +145,14 @@ def get_current_user(request: Request) -> str:
     token = auth.split(" ")[1]
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        return payload.get("sub", "")
-    except:
+        user_id = payload.get("sub", "")
+        print(f"[DEBUG get_current_user] sub extraído: {user_id}", flush=True)  # NOVO LOG
+        return user_id
+    except Exception as e:
+        print(f"[DEBUG get_current_user] Erro ao decodificar: {e}", flush=True)
         raise HTTPException(401, detail="Token inválido ou expirado")
 
-# ========== UTILITÁRIOS ==========
+# ========== UTILITÁRIOS (inalterados) ==========
 def limpar_e_extrair_json(texto: str) -> dict:
     texto = re.sub(r'^```(?:json)?\s*', '', texto.strip())
     texto = re.sub(r'\s*```$', '', texto)
@@ -289,11 +298,23 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
     auth = request.headers.get("Authorization")
     print(f"[DEBUG] Header Authorization: {auth}", flush=True)
     if auth and auth.startswith("Bearer "):
+        token = auth.split(" ")[1]
         try:
+            # Tenta extrair via get_current_user (que já decodifica)
             user_id = get_current_user(request)
-            print(f"[DEBUG] user_id extraído: {user_id}", flush=True)
+            print(f"[DEBUG] user_id extraído (get_current_user): {user_id}", flush=True)
         except Exception as e:
-            print(f"[DEBUG] Erro ao extrair user_id: {e}", flush=True)
+            print(f"[DEBUG] Erro ao extrair user_id via get_current_user: {e}", flush=True)
+            # Fallback: decodificar o token diretamente
+            try:
+                payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+                user_id = payload.get("sub", "")
+                print(f"[DEBUG] user_id extraído (fallback): {user_id}", flush=True)
+                if not user_id:
+                    # Última tentativa: usar o email como identificador? Melhor logar o payload
+                    print(f"[DEBUG] Payload completo: {payload}", flush=True)
+            except Exception as fallback_err:
+                print(f"[DEBUG] Fallback também falhou: {fallback_err}", flush=True)
 
     if user_id:
         pode, restante = await pode_gerar(user_id)
@@ -340,13 +361,12 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
     tendencias = conteudo.get("tendencias", [])
     if not isinstance(tendencias, list): tendencias = [tendencias]
 
-    # REGISTRO DE USO
-    print(f"[DEBUG] Antes do if user_id. user_id é: {user_id}", flush=True)
+    # REGISTRO DE USO (agora com fallback de extração)
     if user_id:
         print("[DEBUG] Chamando registrar_uso...", flush=True)
         await registrar_uso(user_id, "gerar")
     else:
-        print("[DEBUG] user_id é None ou vazio, pulando registro de uso.", flush=True)
+        print("[DEBUG] user_id é None ou vazio após todas as tentativas.", flush=True)
 
     return {
         "titulo": titulo,
