@@ -96,7 +96,7 @@ function App() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`  // <-- ENVIA O TOKEN PARA O BACKEND
         },
         body: JSON.stringify({ tema, plataforma }),
       });
@@ -114,8 +114,6 @@ function App() {
   };
 
   const handleLoginSucesso = (nome: string, email: string, avatar: string) => {
-    // Após login demo, o sub pode não existir; a função getUserIdFromToken não se aplica aqui,
-    // mas para login Google o fluxo já garante o token.
     setUsuario({ nome, email, avatar });
   };
 
