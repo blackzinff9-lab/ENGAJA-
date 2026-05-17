@@ -347,7 +347,8 @@ def pesquisar_tendencias_mcp(tema: str, plataforma: str) -> str:
         corpo = dados.get("body", [])
         if isinstance(corpo, str):
             corpo = json.loads(corpo)
-        if not corpo:
+        # Garante que corpo é uma lista e tem pelo menos 5 elementos
+        if not isinstance(corpo, list) or len(corpo) < 5:
             return ""
         ultimos = corpo[-5:]
         linhas = [f"- Data: {p.get('date', 'N/A')}, Popularidade: {p.get('value', 'N/A')}/100" for p in ultimos]
@@ -417,60 +418,39 @@ async def registrar_uso(user_id: str, action_type: str):
 # ==========================================
 
 async def verificar_status_assinatura(user_id: str):
-    """
-    Verifica na API do Mercado Pago se a assinatura do usuário ainda está ativa.
-    Se não estiver, rebaixa o plano para 'free'.
-    """
     try:
-        # Busca assinaturas associadas a este usuário
         search_response = mp_sdk.preapproval().search({"external_reference": user_id})
-        
         if search_response.get("status") == 200:
             results = search_response.get("response", {}).get("results", [])
-            
-            # Se não encontrou assinatura, rebaixa para free
             if not results:
                 supabase.table("users").update({"plan": "free"}).eq("id", user_id).execute()
-                return {"status": "free", "mensagem": "Nenhuma assinatura encontrada. Plano rebaixado para free."}
-            
-            # Verifica a assinatura mais recente
+                return {"status": "free", "mensagem": "Nenhuma assinatura encontrada."}
             subscription = results[0]
             subscription_status = subscription.get("status", "cancelled")
-            
             if subscription_status != "authorized":
                 supabase.table("users").update({"plan": "free"}).eq("id", user_id).execute()
-                return {"status": "free", "mensagem": f"Assinatura {subscription_status}. Plano rebaixado."}
+                return {"status": "free", "mensagem": f"Assinatura {subscription_status}."}
             else:
                 return {"status": "pro", "mensagem": "Assinatura ativa."}
         else:
-            # Erro na API, mantém o plano atual
-            return {"status": "unknown", "mensagem": "Não foi possível verificar a assinatura."}
-            
+            return {"status": "unknown", "mensagem": "Não foi possível verificar."}
     except Exception as e:
         print(f"[Verificação Assinatura] Erro: {e}")
         return {"status": "error", "mensagem": str(e)}
 
+
 @app.post("/api/verificar-assinatura")
 async def verificar_assinatura(request: Request):
-    """
-    Endpoint para verificar o status da assinatura do usuário no Mercado Pago.
-    Pode ser chamado pelo frontend periodicamente ou após ações do usuário.
-    """
     body = await request.json()
     user_id = body.get("user_id")
     if not user_id:
         raise HTTPException(status_code=400, detail="user_id é obrigatório")
-    
-    resultado = await verificar_status_assinatura(user_id)
-    return resultado
+    return await verificar_status_assinatura(user_id)
+
 
 @app.get("/api/verificar-assinatura/{user_id}")
 async def verificar_assinatura_get(user_id: str):
-    """
-    Versão GET para facilitar testes e verificações manuais.
-    """
-    resultado = await verificar_status_assinatura(user_id)
-    return resultado
+    return await verificar_status_assinatura(user_id)
 
 
 # ==========================================
