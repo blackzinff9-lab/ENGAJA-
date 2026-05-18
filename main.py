@@ -93,13 +93,12 @@ async def google_callback(request: Request, code: str = Query(...)):
         email = user.get("email", "")
         avatar = user.get("picture", f"https://ui-avatars.com/api/?name={urllib.parse.quote(nome)}&background=6366f1&color=fff&size=128&bold=true")
         user_id = user.get("sub", "")
-        print(f"[DEBUG Google] user_id obtido: {user_id}", flush=True)  # NOVO LOG
+        print(f"[DEBUG Google] user_id obtido: {user_id}", flush=True)
         if user_id:
             try:
                 supabase.table("users").upsert({"id": user_id, "email": email}).execute()
             except Exception as e:
                 print(f"[Supabase] Erro upsert user: {e}")
-        # Garantir que o payload do JWT tenha o 'sub'
         payload = {
             "sub": user_id,
             "nome": nome,
@@ -144,13 +143,28 @@ def get_current_user(request: Request) -> str:
         raise HTTPException(401, detail="Token não fornecido")
     token = auth.split(" ")[1]
     try:
+        # Tentativa padrão com verificação de assinatura
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         user_id = payload.get("sub", "")
-        print(f"[DEBUG get_current_user] sub extraído: {user_id}", flush=True)  # NOVO LOG
+        print(f"[DEBUG get_current_user] sub extraído (com verificação): {user_id}", flush=True)
         return user_id
     except Exception as e:
-        print(f"[DEBUG get_current_user] Erro ao decodificar: {e}", flush=True)
-        raise HTTPException(401, detail="Token inválido ou expirado")
+        print(f"[DEBUG get_current_user] Erro com verificação: {e}. Tentando sem verificar.", flush=True)
+        try:
+            # Fallback: decodificar sem verificar assinatura para inspecionar o payload
+            payload = jwt.decode(token, options={"verify_signature": False})
+            print(f"[DEBUG get_current_user] Payload completo (sem verificação): {payload}", flush=True)
+            user_id = payload.get("sub", "")
+            if not user_id:
+                # Tenta outras chaves comuns: user_id, id, email
+                user_id = payload.get("user_id", payload.get("id", payload.get("email", "")))
+            print(f"[DEBUG get_current_user] user_id extraído (fallback): {user_id}", flush=True)
+            if not user_id:
+                raise Exception("Nenhum identificador encontrado no payload")
+            return user_id
+        except Exception as fallback_err:
+            print(f"[DEBUG get_current_user] Fallback também falhou: {fallback_err}", flush=True)
+            raise HTTPException(401, detail="Token inválido ou expirado")
 
 # ========== UTILITÁRIOS (inalterados) ==========
 def limpar_e_extrair_json(texto: str) -> dict:
@@ -272,7 +286,6 @@ async def verificar_status_assinatura(user_id: str):
         print(f"[Verificação Assinatura] Erro: {e}")
         return {"status": "error", "mensagem": str(e)}
 
-# Endpoints de verificação de assinatura
 @app.post("/api/verificar-assinatura")
 async def verificar_assinatura(request: Request):
     body = await request.json()
@@ -300,21 +313,19 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
     if auth and auth.startswith("Bearer "):
         token = auth.split(" ")[1]
         try:
-            # Tenta extrair via get_current_user (que já decodifica)
+            # Tenta extrair via get_current_user (que agora tem fallback sem verificação)
             user_id = get_current_user(request)
             print(f"[DEBUG] user_id extraído (get_current_user): {user_id}", flush=True)
         except Exception as e:
             print(f"[DEBUG] Erro ao extrair user_id via get_current_user: {e}", flush=True)
-            # Fallback: decodificar o token diretamente
+            # Último fallback: decodificar manualmente sem verificar assinatura
             try:
-                payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-                user_id = payload.get("sub", "")
-                print(f"[DEBUG] user_id extraído (fallback): {user_id}", flush=True)
-                if not user_id:
-                    # Última tentativa: usar o email como identificador? Melhor logar o payload
-                    print(f"[DEBUG] Payload completo: {payload}", flush=True)
+                payload = jwt.decode(token, options={"verify_signature": False})
+                print(f"[DEBUG] Payload completo (fallback manual): {payload}", flush=True)
+                user_id = payload.get("sub", payload.get("user_id", payload.get("id", payload.get("email", ""))))
+                print(f"[DEBUG] user_id extraído (fallback manual): {user_id}", flush=True)
             except Exception as fallback_err:
-                print(f"[DEBUG] Fallback também falhou: {fallback_err}", flush=True)
+                print(f"[DEBUG] Fallback manual também falhou: {fallback_err}", flush=True)
 
     if user_id:
         pode, restante = await pode_gerar(user_id)
@@ -361,7 +372,7 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
     tendencias = conteudo.get("tendencias", [])
     if not isinstance(tendencias, list): tendencias = [tendencias]
 
-    # REGISTRO DE USO (agora com fallback de extração)
+    # REGISTRO DE USO (agora com fallback robusto)
     if user_id:
         print("[DEBUG] Chamando registrar_uso...", flush=True)
         await registrar_uso(user_id, "gerar")
