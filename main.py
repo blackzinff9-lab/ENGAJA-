@@ -436,10 +436,10 @@ async def notificacao_pagamento(request: Request):
 async def status():
     return {
         "status": "online",
-        "groq": bool(GROQ_API_KEY),
-        "youtube": bool(YOUTUBE_API_KEY),
-        "trends": bool(TRENDSMCP_API_KEY),
-        "google": bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET),
+        "groq_configurado": bool(GROQ_API_KEY),
+        "youtube_configurado": bool(YOUTUBE_API_KEY),
+        "trends_mcp_configurado": bool(TRENDSMCP_API_KEY),
+        "google_login_configurado": bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET),
     }
 
 # ==========================================
