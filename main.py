@@ -93,19 +93,15 @@ async def google_callback(request: Request, code: str = Query(...)):
         email = user.get("email", "")
         avatar = user.get("picture", f"https://ui-avatars.com/api/?name={urllib.parse.quote(nome)}&background=6366f1&color=fff&size=128&bold=true")
 
-        # Buscar usuário no Supabase por email
+        # Buscar ou criar usuário no Supabase
         user_id = ""
         try:
             res = supabase.table("users").select("id").eq("email", email).execute()
             if res.data and len(res.data) > 0:
                 user_id = res.data[0]["id"]
-                print(f"[DEBUG] Usuário encontrado no banco: id={user_id}", flush=True)
-                # Atualizar nome
                 supabase.table("users").update({"name": nome}).eq("id", user_id).execute()
             else:
-                # Novo usuário: gerar UUID e inserir
                 user_id = str(uuid.uuid4())
-                print(f"[DEBUG] Novo usuário: criando id={user_id}", flush=True)
                 supabase.table("users").insert({
                     "id": user_id,
                     "email": email,
@@ -114,7 +110,6 @@ async def google_callback(request: Request, code: str = Query(...)):
                 }).execute()
         except Exception as e:
             print(f"[Supabase] Erro ao buscar/criar usuário: {e}", flush=True)
-            traceback.print_exc()
             return RedirectResponse("/?erro=erro_interno")
 
         payload = {
@@ -162,15 +157,11 @@ def get_current_user(request: Request) -> str:
     token = auth.split(" ")[1]
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        user_id = payload.get("sub", "")
-        print(f"📦 [DEBUG] Payload decodificado: sub={user_id}", flush=True)
-        return user_id
+        return payload.get("sub", "")
     except jwt.ExpiredSignatureError:
-        print("❌ [DEBUG JWT] Token expirado", flush=True)
         raise HTTPException(401, detail="Token expirado")
-    except jwt.InvalidTokenError as e:
-        print(f"❌ [DEBUG JWT] Token inválido: {str(e)}", flush=True)
-        raise HTTPException(401, detail="Token inválido ou expirado")
+    except jwt.InvalidTokenError:
+        raise HTTPException(401, detail="Token inválido")
 
 # ========== UTILITÁRIOS ==========
 def limpar_e_extrair_json(texto: str) -> dict:
@@ -197,11 +188,11 @@ def chamar_groq(prompt: str) -> str:
     if not GROQ_API_KEY: raise HTTPException(500, detail="GROQ_API_KEY não configurada")
     resp = requests.post(GROQ_URL, headers={"Content-Type": "application/json", "Authorization": f"Bearer {GROQ_API_KEY}"},
                         json={"model": GROQ_MODEL, "messages": [
-                            {"role": "system", "content": "Especialista brasileiro em conteúdo viral. Responda APENAS JSON."},
+                            {"role": "system", "content": "Você é um especialista brasileiro em criação de conteúdo viral. Responda SEMPRE e APENAS com um objeto JSON válido e completo. NUNCA use markdown, NUNCA use array para 'hashtags' ou 'roteiro' (devem ser strings). As chaves devem ser exatamente: titulo, descricao, hashtags, roteiro, ideiaEdicao, tendencias."},
                             {"role": "user", "content": prompt}
                         ], "temperature": 0.8, "max_tokens": 8000}, timeout=90)
-    if resp.status_code == 429: raise HTTPException(429, detail="Limite do Groq")
-    if not resp.ok: raise HTTPException(502, detail=f"Erro Groq: {resp.text}")
+    if resp.status_code == 429: raise HTTPException(429, detail="Limite de requisições do Groq atingido.")
+    if not resp.ok: raise HTTPException(502, detail=f"Erro na API Groq: {resp.text}")
     return resp.json()["choices"][0]["message"]["content"]
 
 def pesquisar_tendencias_youtube(tema: str) -> str:
@@ -237,7 +228,7 @@ def pesquisar_tendencias_mcp(tema: str, plataforma: str) -> str:
         return ""
 
 def fallback_groq_pesquisa(tema: str, plataforma: str) -> str:
-    prompt = f"Especialista em tendências do {plataforma}. Liste 3 tópicos em alta sobre '{tema}', hashtags e estilo de conteúdo."
+    prompt = f"Com base no seu conhecimento, aja como um especialista em tendências do {plataforma}. Liste 3 tópicos em alta sobre '{tema}', hashtags relevantes e estilo de conteúdo."
     return chamar_groq(prompt)
 
 # ========== CONTROLE DE LIMITES ==========
@@ -291,47 +282,34 @@ async def verificar_status_assinatura(user_id: str):
     except Exception as e:
         print(f"[Verificação Assinatura] Erro: {e}")
         return {"status": "error", "mensagem": str(e)}
-
-@app.post("/api/verificar-assinatura")
-async def verificar_assinatura(request: Request):
-    body = await request.json()
-    user_id = body.get("user_id")
-    if not user_id: raise HTTPException(400, "user_id obrigatório")
-    return await verificar_status_assinatura(user_id)
-
-@app.get("/api/verificar-assinatura/{user_id}")
-async def verificar_assinatura_get(user_id: str):
-    return await verificar_status_assinatura(user_id)
-    # ==========================================
+        
+# ==========================================
 # ENDPOINT PRINCIPAL DE GERAÇÃO
 # ==========================================
 
 @app.post("/api/gerar")
 async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
-    print("-> ENTROU NA ROTA /api/gerar", flush=True)
-
     if not req.tema.strip() or req.plataforma not in ("tiktok", "instagram", "youtube"):
         raise HTTPException(400, detail="Dados inválidos")
 
+    # Autenticação
     user_id = None
     auth = request.headers.get("Authorization")
-    print(f"[DEBUG] Header Authorization: {auth}", flush=True)
     if auth and auth.startswith("Bearer "):
         try:
             user_id = get_current_user(request)
-            print(f"[DEBUG] user_id extraído: {user_id}", flush=True)
-        except Exception as e:
-            print(f"[DEBUG] Erro ao extrair user_id: {e}", flush=True)
+        except:
+            pass
 
+    # Verificação de limite
     if user_id:
         pode, restante = await pode_gerar(user_id)
-        print(f"[DEBUG] pode_gerar: {pode}, restantes: {restante}", flush=True)
         if not pode:
-            print("[DEBUG] Limite atingido - retornando 402", flush=True)
-            raise HTTPException(402, detail="Limite diário atingido. Faça upgrade para o Plano Pro.")
+            raise HTTPException(402, detail="Limite diário atingido. Faça upgrade para o Plano Pro para gerar até 10 ideias.")
 
     nome_plataforma = {"tiktok": "TikTok", "instagram": "Instagram", "youtube": "YouTube"}[req.plataforma]
 
+    # Pesquisa de tendências
     dados_tendencias = ""
     fonte = "groq_fallback"
     if req.plataforma == "youtube":
@@ -343,16 +321,55 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
     if not dados_tendencias:
         dados_tendencias = fallback_groq_pesquisa(req.tema, nome_plataforma) or ""
 
+    # Instruções específicas por plataforma
     instrucoes = ""
     if req.plataforma == "youtube":
-        instrucoes = "YouTube: título curto (75 chars), descrição longa (150-300 palavras) com hashtags no final, roteiro para vídeo longo/médio."
+        instrucoes = """
+**YouTube:**
+- Título: Objetivo, com a palavra-chave principal à esquerda e no **máximo 75 caracteres**. Deve gerar curiosidade.
+- Descrição: A peça central do SEO. Deve ser longa (**150–300 palavras**), funcionando como um mini artigo. Repita a palavra-chave principal **2–4 vezes** e inclua palavras-chave relacionadas **2–3 vezes**. Inclua uma chamada para ação (inscrever-se, comentar). Use de **3 a 5 hashtags** estratégicas no final da descrição.
+- Roteiro: Para um vídeo de formato longo ou médio. Deve ter uma introdução que resuma o valor, desenvolvimento detalhado e uma conclusão com call to action forte.
+"""
     elif req.plataforma == "tiktok":
-        instrucoes = "TikTok: título chamativo, descrição curta (100 chars), hashtags poucas e boas, roteiro para vídeo curto e vertical."
-    else:
-        instrucoes = "Instagram: título criativo, descrição com gancho SEO, hashtags 3-5, roteiro para Reels."
+        instrucoes = """
+**TikTok:**
+- Título (Texto na tela e legenda): Use **palavras-chave de cauda longa** e texto chamativo nos primeiros segundos para incentivar a retenção. A IA do TikTok analisa o texto na tela, então ele é crucial. Crie um gancho fortíssimo nos primeiros 3 segundos.
+- Descrição: Curta e direta, com as **palavras-chave mais importantes nos primeiros 100 caracteres**.
+- Hashtags: Use **poucas e boas**: 1-2 de tendência, 1-2 de nicho e 1 da sua marca (#ENGAJAÍ).
+- Roteiro: Para um vídeo curto e vertical. Deve ser dinâmico, com cortes rápidos, texto na tela (que serve como SEO). Foque em retenção e um gancho inicial explosivo.
+"""
+    elif req.plataforma == "instagram":
+        instrucoes = """
+**Instagram:**
+- Título (Texto na tela): Criativo, com uma **palavra-chave principal nos primeiros 3 segundos** do texto na tela. O objetivo é gerar "salvamentos" e conexão.
+- Descrição: A primeira frase é crucial (**gancho + SEO**). Use parágrafos, emojis e formatação para criar um texto escaneável. Inclua uma chamada para ação. Use de **3 a 5 hashtags** relevantes (de preferência no final ou no primeiro comentário).
+- Roteiro: Para um Reels. Deve ser visualmente atraente, com uma introdução que prenda a atenção imediatamente, desenvolvimento do valor e uma conclusão que incentive a salvar ou compartilhar.
+"""
 
-    prompt = f"Você é um criador de conteúdo viral brasileiro especializado em {nome_plataforma}. Tema: \"{req.tema}\". {instrucoes} Responda APENAS JSON com chaves: titulo, descricao, hashtags (string única com # separadas por espaço), roteiro (detalhado), ideiaEdicao (mín. 150 palavras), tendencias (array 3 strings)."
-    resposta_groq = chamar_groq(prompt)
+    prompt_principal = f"""
+Você é um criador de conteúdo viral brasileiro especializado em {nome_plataforma}.
+
+Tema do vídeo: "{req.tema}"
+
+Dados de tendências (use como inspiração):
+{f"INÍCIO DOS DADOS DE TENDÊNCIA:\n{dados_tendencias}\nFIM DOS DADOS DE TENDÊNCIA\n" if dados_tendencias else "Nenhum dado externo disponível."}
+
+INSTRUÇÕES ESTRITAS E ADAPTADAS À PLATAFORMA:
+{instrucoes}
+
+FORMATO DE RESPOSTA OBRIGATÓRIO:
+1. Responda APENAS com o JSON puro, sem introdução, sem markdown, sem comentários.
+2. O JSON DEVE ter exatamente as chaves: "titulo", "descricao", "hashtags", "roteiro", "ideiaEdicao", "tendencias".
+3. "hashtags": STRING ÚNICA com tags separadas por espaço, cada uma começando com #. NÃO USE ARRAY.
+4. "roteiro": STRING ÚNICA contendo o roteiro COMPLETO do vídeo. Divida em cenas com [CENA X – ABERTURA (0s-3s)], descreva enquadramento, falas, texto na tela (para SEO), sons e transições. O roteiro deve ser adaptado ao formato da plataforma (Shorts/Reels para TikTok/Instagram, vídeo mais longo para YouTube). NÃO USE ARRAY.
+5. "ideiaEdicao": STRING ÚNICA descritiva com no MÍNIMO 150 PALAVRAS, incluindo paleta de cores (códigos hex), fontes, filtros, música (gênero e BPM), efeitos sonoros, elementos gráficos.
+6. "tendencias": array de 3 strings curtas.
+7. Todas as strings devem estar em português brasileiro.
+
+Agora gere o JSON para o tema "{req.tema}" seguindo rigorosamente o formato e as instruções específicas para {nome_plataforma}.
+"""
+
+    resposta_groq = chamar_groq(prompt_principal)
     conteudo = normalizar_chaves_json(limpar_e_extrair_json(resposta_groq))
 
     titulo = conteudo.get("titulo") or f"{req.tema.split()[0].capitalize()}: O Segredo!"
@@ -367,11 +384,9 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
     tendencias = conteudo.get("tendencias", [])
     if not isinstance(tendencias, list): tendencias = [tendencias]
 
+    # Registro de uso
     if user_id:
-        print("[DEBUG] Chamando registrar_uso...", flush=True)
         await registrar_uso(user_id, "gerar")
-    else:
-        print("[DEBUG] user_id é None ou vazio.", flush=True)
 
     return {
         "titulo": titulo,
@@ -395,9 +410,9 @@ async def gerar_sequencia(req: RequisicaoSequencia, request: Request):
         raise HTTPException(400, detail="Dados inválidos")
     user_id = get_current_user(request)
     if await get_plano_usuario(user_id) != "pro":
-        raise HTTPException(402, detail="Exclusivo para assinantes Pro.")
+        raise HTTPException(402, detail="Recurso exclusivo para assinantes Pro.")
     nome_plataforma = {"tiktok": "TikTok", "instagram": "Instagram", "youtube": "YouTube"}[req.plataforma]
-    prompt = f"Gere 10 ideias diversificadas para série sobre \"{req.tema}\" no {nome_plataforma}. JSON com 'ideias': [{{'titulo':'...', 'temaCurto':'...'}}]"
+    prompt = f"Você é um estrategista de conteúdo para {nome_plataforma}. Gere 10 ideias diversificadas para série sobre '{req.tema}'. JSON com 'ideias': [{{'titulo':'...', 'temaCurto':'...'}}]"
     resposta = chamar_groq(prompt)
     dados = limpar_e_extrair_json(resposta)
     ideias = dados.get("ideias", [])
