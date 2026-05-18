@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
-import requests, json, os, jwt, urllib.parse, re, traceback
+import requests, json, os, jwt, urllib.parse, re, traceback, uuid
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -92,13 +92,31 @@ async def google_callback(request: Request, code: str = Query(...)):
         nome = user.get("name", "Usuário")
         email = user.get("email", "")
         avatar = user.get("picture", f"https://ui-avatars.com/api/?name={urllib.parse.quote(nome)}&background=6366f1&color=fff&size=128&bold=true")
-        user_id = user.get("sub", "")
-        print(f"[DEBUG Google] user_id obtido: {user_id}", flush=True)
-        if user_id:
-            try:
-                supabase.table("users").upsert({"id": user_id, "email": email}).execute()
-            except Exception as e:
-                print(f"[Supabase] Erro upsert user: {e}")
+
+        # Buscar usuário no Supabase por email
+        user_id = ""
+        try:
+            res = supabase.table("users").select("id").eq("email", email).execute()
+            if res.data and len(res.data) > 0:
+                user_id = res.data[0]["id"]
+                print(f"[DEBUG] Usuário encontrado no banco: id={user_id}", flush=True)
+                # Atualizar nome
+                supabase.table("users").update({"name": nome}).eq("id", user_id).execute()
+            else:
+                # Novo usuário: gerar UUID e inserir
+                user_id = str(uuid.uuid4())
+                print(f"[DEBUG] Novo usuário: criando id={user_id}", flush=True)
+                supabase.table("users").insert({
+                    "id": user_id,
+                    "email": email,
+                    "name": nome,
+                    "plan": "free"
+                }).execute()
+        except Exception as e:
+            print(f"[Supabase] Erro ao buscar/criar usuário: {e}", flush=True)
+            traceback.print_exc()
+            return RedirectResponse("/?erro=erro_interno")
+
         payload = {
             "sub": user_id,
             "nome": nome,
@@ -144,8 +162,8 @@ def get_current_user(request: Request) -> str:
     token = auth.split(" ")[1]
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        print(f"📦 [DEBUG] Payload decodificado com sucesso: {payload}", flush=True)
-        user_id = payload.get("sub") or payload.get("user_id") or payload.get("id")
+        user_id = payload.get("sub", "")
+        print(f"📦 [DEBUG] Payload decodificado: sub={user_id}", flush=True)
         return user_id
     except jwt.ExpiredSignatureError:
         print("❌ [DEBUG JWT] Token expirado", flush=True)
