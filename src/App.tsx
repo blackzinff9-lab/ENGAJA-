@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Dashboard from './Dashboard';
 import PaginaLogin from './LoginPage';
+import Termos from './Termos';
+import Privacidade from './Privacidade';
 import { Platform } from './types';
 import { StatusBackend } from './api';
 import { Zap, Sparkles, CheckCircle2, Menu, X } from 'lucide-react';
@@ -96,7 +98,7 @@ function App() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`  // <-- ENVIA O TOKEN PARA O BACKEND
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ tema, plataforma }),
       });
@@ -128,6 +130,11 @@ function App() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Verifica se a URL é de termos ou privacidade
+  const path = window.location.pathname;
+  if (path === '/termos') return <Termos />;
+  if (path === '/privacidade') return <Privacidade />;
 
   if (!usuario) {
     return (
@@ -176,8 +183,7 @@ function App() {
           </button>
         </div>
       </nav>
-
-      <main className="relative z-10 pt-32 pb-20">
+            <main className="relative z-10 pt-32 pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <section className="text-center mb-16">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold mb-8 tracking-wide uppercase">
