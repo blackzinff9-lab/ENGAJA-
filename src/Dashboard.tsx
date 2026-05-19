@@ -306,8 +306,7 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
           </p>
         )}
       </form>
-      
-      {/* EXIBIÇÃO DO CONTEÚDO GERADO */}
+            {/* EXIBIÇÃO DO CONTEÚDO GERADO */}
       {conteudoGerado && (
         <div className="mt-10 space-y-6 animate-fade-in">
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -487,7 +486,14 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
           )}
         </div>
       )}
+
+      {/* Rodapé com links de Termos e Privacidade */}
+      <footer className="mt-20 border-t border-white/10 pt-6 text-center">
+        <div className="flex justify-center gap-4 text-xs text-white/30">
+          <a href="/termos" className="hover:text-white/50 transition">Termos de Serviço</a>
+          <a href="/privacidade" className="hover:text-white/50 transition">Política de Privacidade</a>
+        </div>
+      </footer>
     </div>
   );
-          }
-      
+}
