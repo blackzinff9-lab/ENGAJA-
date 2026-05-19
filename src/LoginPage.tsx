@@ -1,4 +1,5 @@
-import { Zap, Sparkles, TrendingUp, Video, Hash, Wand2, ArrowRight } from 'lucide-react';
+import { useState } from 'react';
+import { Zap, Sparkles, TrendingUp, Video, Hash, Wand2, ArrowRight, Loader2 } from 'lucide-react';
 import { StatusBackend, urlLoginGoogle } from './api';
 
 interface LoginProps {
@@ -7,10 +8,19 @@ interface LoginProps {
 }
 
 export default function PaginaLogin({ aoEntrar, statusBackend }: LoginProps) {
+  const [carregandoDemo, setCarregandoDemo] = useState(false);
   const googleConfigurado = statusBackend?.google_login_configurado ?? false;
 
   const aoEntrarGoogle = () => {
     window.location.href = urlLoginGoogle();
+  };
+
+  const aoEntrarDemo = () => {
+    setCarregandoDemo(true);
+    setTimeout(() => {
+      aoEntrar('Usuário Demo', 'demo@contentforge.ai', '');
+      setCarregandoDemo(false);
+    }, 500);
   };
 
   const recursos = [
@@ -83,8 +93,7 @@ export default function PaginaLogin({ aoEntrar, statusBackend }: LoginProps) {
             <span>Entrar com Google</span>
             <ArrowRight className="w-4 h-4"/>
           </button>
-
-          {/* Nota sobre segurança */}
+                    {/* Nota sobre segurança */}
           <div className="mt-5 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
             <div className="flex items-center gap-2 text-xs text-purple-300/80">
               <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
@@ -103,6 +112,12 @@ export default function PaginaLogin({ aoEntrar, statusBackend }: LoginProps) {
               <span className="text-sm font-bold text-[#FF0000]">YouTube</span>
             </div>
           </div>
+        </div>
+
+        {/* Links de Termos e Privacidade */}
+        <div className="text-center text-white/20 text-xs mt-6 flex gap-4 justify-center">
+          <a href="/termos" className="hover:text-white/40 transition">Termos de Serviço</a>
+          <a href="/privacidade" className="hover:text-white/40 transition">Política de Privacidade</a>
         </div>
 
         {/* Rodapé */}
