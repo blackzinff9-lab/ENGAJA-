@@ -172,7 +172,7 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle className="w-3 h-3 text-emerald-400 mt-0.5 flex-shrink-0" />
-                    Gere <strong className="text-white">10 ideias futuras</strong> em sequência
+                    <strong className="text-white">Conteúdo infinito interligados</strong>
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle className="w-3 h-3 text-emerald-400 mt-0.5 flex-shrink-0" />
@@ -397,14 +397,13 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
                     )}
                   </button>
                   <p className="text-xs text-amber-400/70 mt-2">
-                    ✨ Libere sequências ilimitadas de vídeos interligados e mantenha seu conteúdo sempre atualizado.
+                    ✨ 10 ideias de futuros vídeos interligadas para manter seu conteúdo sempre atualizado.
                   </p>
                 </div>
               ) : (
                 /* Versão bloqueada para Free (dourado com correntes) */
                 <div>
                   <div className="relative inline-block">
-                    {/* Correntes visuais (sobreposição) */}
                     <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 rounded-2xl opacity-40 blur-sm"></div>
                     <button
                       onClick={gerarSequencia}
@@ -415,13 +414,12 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
                       <span className="relative z-20 text-white/90">Conteúdo Infinito</span>
                       <span className="relative z-20 text-xs bg-black/40 px-2 py-0.5 rounded-full text-amber-400 ml-2">PRO</span>
                     </button>
-                    {/* Ícones de corrente decorativos */}
                     <div className="absolute -top-2 -right-2 z-30">
                       <Lock className="w-5 h-5 text-amber-400 drop-shadow-lg" />
                     </div>
                   </div>
-                  <p className="text-xs text-gray-400 mt-2">
-                    🔒 Desbloqueie o conteúdo infinito e crie sequências ilimitadas de vídeos. <button type="button" onClick={handleAssinarPro} className="underline text-amber-400 hover:text-amber-300">Assine o Pro</button>
+                  <p className="text-xs text-amber-400/70 mt-2">
+                    ✨ 10 ideias de futuros vídeos interligadas para manter seu conteúdo sempre atualizado.
                   </p>
                 </div>
               )}
@@ -496,4 +494,4 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
       </footer>
     </div>
   );
-                }
+                                                 }
