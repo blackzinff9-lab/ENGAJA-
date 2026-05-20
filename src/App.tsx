@@ -17,14 +17,13 @@ function App() {
   const [conteudoGerado, setConteudoGerado] = useState<any>(null);
   const [usuario, setUsuario] = useState<any>(null);
   const [consentiu, setConsentiu] = useState(false);
+  const [menuDropdownAberto, setMenuDropdownAberto] = useState(false);
 
-  // Verifica se o usuário já aceitou os termos
   const verificarConsentimento = () => {
     const aceito = localStorage.getItem('termos_aceitos');
     setConsentiu(aceito === 'true');
   };
 
-  // Função auxiliar para extrair sub do token JWT se necessário
   const getUserIdFromToken = (token: string) => {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
@@ -147,7 +146,6 @@ function App() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Verifica se a URL é de termos ou privacidade
   const path = window.location.pathname;
   if (path === '/termos') return <Termos />;
   if (path === '/privacidade') return <Privacidade />;
@@ -161,12 +159,10 @@ function App() {
     );
   }
 
-  // Se usuário logado mas não consentiu, mostra página de consentimento
   if (!consentiu) {
     return <ConsentPage onConsent={handleConsent} />;
   }
-    // Logado e consentiu — mostra o app completo
-  return (
+    return (
     <div className="min-h-screen bg-gray-950 text-white font-sans selection:bg-indigo-500/30">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/10 rounded-full blur-[120px]" />
@@ -191,6 +187,47 @@ function App() {
               )}
               <span className="text-sm text-gray-400">{usuario.nome}</span>
             </div>
+
+            {/* Menu de três barras */}
+            <div className="relative">
+              <button
+                onClick={() => setMenuDropdownAberto(!menuDropdownAberto)}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 text-white/60 hover:text-white transition"
+              >
+                <div className="flex flex-col gap-1">
+                  <span className="w-4 h-0.5 bg-white/60 rounded-full"></span>
+                  <span className="w-4 h-0.5 bg-white/60 rounded-full"></span>
+                  <span className="w-4 h-0.5 bg-white/60 rounded-full"></span>
+                </div>
+              </button>
+
+              {menuDropdownAberto && (
+                <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-lg py-2 z-50">
+                  <a
+                    href="mailto:engajaibrasil00@gmail.com"
+                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition"
+                    onClick={() => setMenuDropdownAberto(false)}
+                  >
+                    Suporte
+                  </a>
+                  <a
+                    href="/termos"
+                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition"
+                    onClick={() => setMenuDropdownAberto(false)}
+                  >
+                    Termos de Serviço
+                  </a>
+                  <a
+                    href="/privacidade"
+                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition"
+                    onClick={() => setMenuDropdownAberto(false)}
+                  >
+                    Política de Privacidade
+                  </a>
+                </div>
+              )}
+            </div>
+
             <button
               onClick={handleLogout}
               className="text-sm text-gray-400 hover:text-white transition-colors"
