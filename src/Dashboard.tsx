@@ -371,7 +371,7 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             <p className="text-white/80">{conteudoGerado.ideiaEdicao}</p>
           </div>
 
-          {/* BOTÃO GERAR 10 IDEIAS (SEMPRE DOURADO, COM CORRENTES SE FREE) */}
+          {/* BOTÃO CONTEÚDO INFINITO (SEMPRE DOURADO, COM CORRENTES SE FREE) */}
           {!sequenciaIdeias && (
             <div className="mt-10 text-center">
               {usuario?.plano === 'pro' ? (
@@ -391,13 +391,13 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
                     ) : (
                       <>
                         <Unlock className="w-5 h-5 relative z-10" />
-                        <span className="relative z-10">Gerar 10 Ideias Futuras</span>
+                        <span className="relative z-10">Conteúdo Infinito</span>
                         <ArrowRight className="w-5 h-5 relative z-10" />
                       </>
                     )}
                   </button>
                   <p className="text-xs text-amber-400/70 mt-2">
-                    ✨ Gere ideias para os seus 10 próximos vídeos, interligados e otimizados para o algoritmo.
+                    ✨ Libere sequências ilimitadas de vídeos interligados e mantenha seu conteúdo sempre atualizado.
                   </p>
                 </div>
               ) : (
@@ -412,7 +412,7 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
                     >
                       <span className="absolute inset-0 bg-black/40 rounded-2xl z-10"></span>
                       <Lock className="w-5 h-5 relative z-20 text-white" />
-                      <span className="relative z-20 text-white/90">Gerar 10 Ideias Futuras</span>
+                      <span className="relative z-20 text-white/90">Conteúdo Infinito</span>
                       <span className="relative z-20 text-xs bg-black/40 px-2 py-0.5 rounded-full text-amber-400 ml-2">PRO</span>
                     </button>
                     {/* Ícones de corrente decorativos */}
@@ -421,7 +421,7 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
                     </div>
                   </div>
                   <p className="text-xs text-gray-400 mt-2">
-                    🔒 Gere ideias para os seus 10 próximos vídeos interligados. <button type="button" onClick={handleAssinarPro} className="underline text-amber-400 hover:text-amber-300">Assine o Pro para desbloquear</button>
+                    🔒 Desbloqueie o conteúdo infinito e crie sequências ilimitadas de vídeos. <button type="button" onClick={handleAssinarPro} className="underline text-amber-400 hover:text-amber-300">Assine o Pro</button>
                   </p>
                 </div>
               )}
