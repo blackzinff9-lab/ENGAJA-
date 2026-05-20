@@ -538,7 +538,7 @@ async def status():
     }
 
 # ==========================================
-# SERVIR FRONTEND
+# SERVIR FRONTEND (corrigido para PWA)
 # ==========================================
 
 possiveis_caminhos = [
@@ -553,15 +553,8 @@ for caminho in possiveis_caminhos:
         break
 
 if frontend_path:
-    assets_path = os.path.join(frontend_path, "assets")
-    if os.path.exists(assets_path):
-        app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
-    @app.get("/{full_path:path}")
-    async def serve_frontend(full_path: str):
-        if full_path.startswith("api/"): return None
-        index = os.path.join(frontend_path, "index.html")
-        if os.path.exists(index): return FileResponse(index)
-        return {"erro": "index.html nao encontrado"}
+    # Monta a pasta dist inteira para servir arquivos estáticos (manifest, icons, etc.)
+    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
 else:
     @app.get("/")
     async def erro_dist():
