@@ -93,8 +93,8 @@ async def google_callback(request: Request, code: str = Query(...)):
         email = user.get("email", "")
         avatar = user.get("picture", f"https://ui-avatars.com/api/?name={urllib.parse.quote(nome)}&background=6366f1&color=fff&size=128&bold=true")
 
-        # Definir plano inicial: Pro vitalício para o e-mail de teste
-        plano_inicial = "pro" if email == "gustavofirmino0511@gmail.com" else "free"
+        # Definir plano inicial: Pro vitalício para os e-mails de teste
+        plano_inicial = "pro" if email in ["gustavofirmino0511@gmail.com", "blackzinff9@gmail.com"] else "free"
 
         # Buscar ou criar usuário no Supabase
         user_id = ""
@@ -137,8 +137,8 @@ async def verificar_token(token: str = Query(...)):
         user_id = payload.get("sub", "")
         email = payload.get("email", "")
 
-        # Pro vitalício para o e-mail de teste
-        plano_inicial = "pro" if email in ["gustavofirmino0511@gmail.com", "blackzinff9@gmail.com"] else "free"
+        # Pro vitalício para os e-mails de teste
+        if email == "gustavofirmino0511@gmail.com" or email == "blackzinff9@gmail.com":
             return {
                 "valido": True,
                 "nome": payload.get("nome", ""),
@@ -305,7 +305,7 @@ async def verificar_status_assinatura(user_id: str):
     except Exception as e:
         print(f"[Verificação Assinatura] Erro: {e}")
         return {"status": "error", "mensagem": str(e)}
-       # ==========================================
+        # ==========================================
 # ENDPOINT PRINCIPAL DE GERAÇÃO
 # ==========================================
 
@@ -394,17 +394,31 @@ Agora gere o JSON para o tema "{req.tema}" seguindo rigorosamente o formato e as
     resposta_groq = chamar_groq(prompt_principal)
     conteudo = normalizar_chaves_json(limpar_e_extrair_json(resposta_groq))
 
-    titulo = conteudo.get("titulo") or f"{req.tema.split()[0].capitalize()}: O Segredo!"
-    descricao = conteudo.get("descricao") or f"Descubra mais sobre {req.tema}"
+    # Garantir que todos os campos tenham valores mínimos
+    titulo = conteudo.get("titulo") or f"{req.tema.split()[0].capitalize()}: Ideia Principal"
+    descricao = conteudo.get("descricao") or f"Conteúdo sobre {req.tema}. Assista e compartilhe!"
     hashtags = conteudo.get("hashtags", "")
-    if isinstance(hashtags, list): hashtags = " ".join(f"#{h.strip().lstrip('#')}" for h in hashtags)
-    if not hashtags: hashtags = f"#{req.tema.replace(' ', '')} #dicas #viral"
-    roteiro = conteudo.get("roteiro") or resposta_groq[:1500]
-    if isinstance(roteiro, list): roteiro = "\n".join([f"[{c.get('nome', 'Cena')}] {c.get('fala', '')}" for c in roteiro])
-    ideia_edicao = conteudo.get("ideiaEdicao") or "Paleta: #0A0A0A #FFD700. Fonte Montserrat. Música eletrônica 120 BPM."
-    if isinstance(ideia_edicao, list): ideia_edicao = "\n".join(ideia_edicao)
+    if isinstance(hashtags, list):
+        hashtags = " ".join(f"#{h.strip().lstrip('#')}" for h in hashtags if h.strip())
+    if not hashtags:
+        palavras = req.tema.split()[:3]
+        hashtags = " ".join([f"#{p.capitalize()}" for p in palavras]) + " #conteudo #viral"
+
+    roteiro = conteudo.get("roteiro")
+    if isinstance(roteiro, list):
+        roteiro = "\n".join([f"[{c.get('nome', 'Cena')}] {c.get('fala', '')}" for c in roteiro])
+    if not roteiro:
+        roteiro = f"[ABERTURA] Apresentação do tema '{req.tema}'. [DESENVOLVIMENTO] Principais pontos. [ENCERRAMENTO] Chamada para ação."
+
+    ideia_edicao = conteudo.get("ideiaEdicao")
+    if isinstance(ideia_edicao, list):
+        ideia_edicao = "\n".join(ideia_edicao)
+    if not ideia_edicao or len(ideia_edicao.strip()) < 10:
+        ideia_edicao = "Paleta: #0A0A0A, #FFD700, #00E5FF. Fonte Montserrat. Música eletrônica 120 BPM. Cortes rápidos com glitch."
+
     tendencias = conteudo.get("tendencias", [])
-    if not isinstance(tendencias, list): tendencias = [tendencias]
+    if not isinstance(tendencias, list) or not tendencias:
+        tendencias = [req.tema, f"Dicas de {req.tema}", f"Tendências em {req.tema}"]
 
     # Registro de uso
     if user_id:
@@ -555,4 +569,4 @@ else:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000))) 
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
