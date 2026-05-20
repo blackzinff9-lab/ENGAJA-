@@ -164,7 +164,7 @@ function App() {
   // Se usuário logado mas não consentiu, mostra página de consentimento
   if (!consentiu) {
     return <ConsentPage onConsent={handleConsent} />;
-                }
+  }
     // Logado e consentiu — mostra o app completo
   return (
     <div className="min-h-screen bg-gray-950 text-white font-sans selection:bg-indigo-500/30">
@@ -219,7 +219,7 @@ function App() {
               </span>
             </h1>
             <p className="text-gray-400 text-xl md:text-2xl max-w-3xl mx-auto mb-8">
-              Nossa IA analisa as tendências de última hora para gerar roteiros que retêm a atenção e dominam o "For You".
+              Com inteligência artificial que analisa as tendências de última hora para gerar roteiros que retêm a atenção e dominam o "For You".
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800/40 border border-gray-700/50">
@@ -252,4 +252,3 @@ function App() {
 }
 
 export default App;
-  
