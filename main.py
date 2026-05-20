@@ -93,20 +93,23 @@ async def google_callback(request: Request, code: str = Query(...)):
         email = user.get("email", "")
         avatar = user.get("picture", f"https://ui-avatars.com/api/?name={urllib.parse.quote(nome)}&background=6366f1&color=fff&size=128&bold=true")
 
+        # Definir plano inicial: Pro vitalício para o e-mail de teste
+        plano_inicial = "pro" if email == "gustavofirmino0511@gmail.com" else "free"
+
         # Buscar ou criar usuário no Supabase
         user_id = ""
         try:
             res = supabase.table("users").select("id").eq("email", email).execute()
             if res.data and len(res.data) > 0:
                 user_id = res.data[0]["id"]
-                supabase.table("users").update({"name": nome}).eq("id", user_id).execute()
+                supabase.table("users").update({"name": nome, "plan": plano_inicial}).eq("id", user_id).execute()
             else:
                 user_id = str(uuid.uuid4())
                 supabase.table("users").insert({
                     "id": user_id,
                     "email": email,
                     "name": nome,
-                    "plan": "free"
+                    "plan": plano_inicial
                 }).execute()
         except Exception as e:
             print(f"[Supabase] Erro ao buscar/criar usuário: {e}", flush=True)
@@ -132,6 +135,19 @@ async def verificar_token(token: str = Query(...)):
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         user_id = payload.get("sub", "")
+        email = payload.get("email", "")
+
+        # Pro vitalício para o e-mail de teste
+        if email == "gustavofirmino0511@gmail.com":
+            return {
+                "valido": True,
+                "nome": payload.get("nome", ""),
+                "email": email,
+                "avatar": payload.get("avatar", ""),
+                "sub": user_id,
+                "plano": "pro",
+            }
+
         plano = "free"
         if user_id:
             try:
@@ -143,8 +159,15 @@ async def verificar_token(token: str = Query(...)):
                         if verificacao.get("status") == "free":
                             plano = "free"
             except: pass
-        return {"valido": True, "nome": payload.get("nome", ""), "email": payload.get("email", ""),
-                "avatar": payload.get("avatar", ""), "sub": user_id, "plano": plano}
+
+        return {
+            "valido": True,
+            "nome": payload.get("nome", ""),
+            "email": email,
+            "avatar": payload.get("avatar", ""),
+            "sub": user_id,
+            "plano": plano,
+        }
     except jwt.ExpiredSignatureError:
         raise HTTPException(401, detail="Token expirado")
     except jwt.InvalidTokenError:
@@ -282,8 +305,7 @@ async def verificar_status_assinatura(user_id: str):
     except Exception as e:
         print(f"[Verificação Assinatura] Erro: {e}")
         return {"status": "error", "mensagem": str(e)}
-        
-# ==========================================
+        # ==========================================
 # ENDPOINT PRINCIPAL DE GERAÇÃO
 # ==========================================
 
