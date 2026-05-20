@@ -29,7 +29,6 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
   const [copiado, setCopiado] = useState<string | null>(null);
   const [erroLimite, setErroLimite] = useState<string | null>(null);
 
-  // Estados para a sequência de ideias
   const [sequenciaIdeias, setSequenciaIdeias] = useState<any[] | null>(null);
   const [carregandoSequencia, setCarregandoSequencia] = useState(false);
   const [ideiaExpandida, setIdeiaExpandida] = useState<number | null>(null);
@@ -66,7 +65,6 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
 
   const gerarSequencia = async () => {
     if (!tema || !plataforma) return;
-    // Se não for Pro, redireciona para assinatura
     if (usuario?.plano !== 'pro') {
       handleAssinarPro();
       return;
@@ -152,14 +150,12 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
           <span>Tendências reais • IA real • Resultados profissionais</span>
         </div>
 
-        {/* Indicador de plano e upgrade */}
         {usuario && (
           <div className="flex flex-col items-center gap-3 mb-6">
             <div className="flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-white/5 text-white/60">
               Plano atual: <span className="font-bold text-white">{usuario.plano === 'pro' ? 'PRO' : 'FREE'}</span>
             </div>
 
-            {/* BENEFÍCIOS DO PRO (aparece apenas para FREE) */}
             {usuario.plano !== 'pro' && (
               <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-4 max-w-md mx-auto">
                 <h3 className="text-sm font-bold text-amber-400 mb-2 flex items-center gap-1">
@@ -188,7 +184,6 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
           </div>
         )}
 
-        {/* BOTÃO ASSINAR PRO (apenas se não for Pro) */}
         {usuario && usuario.plano !== 'pro' && (
           <div className="mb-6">
             <button
@@ -204,7 +199,6 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
         )}
       </div>
 
-      {/* Status do Servidor */}
       <div className="mb-6 p-3 rounded-xl bg-white/5 border border-white/10">
         <div className="flex items-center gap-3 text-xs text-white/40">
           <Server className="w-3.5 h-3.5 text-purple-400/70" />
@@ -212,7 +206,6 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
         </div>
       </div>
 
-      {/* Formulário */}
       <form onSubmit={aoEnviar} className="space-y-5">
         <div className="relative">
           <label className="block text-sm font-medium text-white/60 mb-2">
@@ -306,15 +299,13 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
           </p>
         )}
       </form>
-            {/* EXIBIÇÃO DO CONTEÚDO GERADO */}
-      {conteudoGerado && (
+            {conteudoGerado && (
         <div className="mt-10 space-y-6 animate-fade-in">
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-purple-400" />
             Seu Conteúdo Viral
           </h2>
 
-          {/* Título */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Título</span>
@@ -325,7 +316,6 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             <p className="text-white text-lg font-semibold">{conteudoGerado.titulo}</p>
           </div>
 
-          {/* Descrição */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Descrição</span>
@@ -336,7 +326,6 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             <p className="text-white/80">{conteudoGerado.descricao}</p>
           </div>
 
-          {/* Hashtags */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Hashtags</span>
@@ -349,7 +338,6 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             </p>
           </div>
 
-          {/* Roteiro */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Roteiro</span>
@@ -360,7 +348,6 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             <p className="text-white/80 whitespace-pre-line">{conteudoGerado.roteiro}</p>
           </div>
 
-          {/* Ideia de Edição */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Ideia de Edição</span>
@@ -371,11 +358,9 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             <p className="text-white/80">{conteudoGerado.ideiaEdicao}</p>
           </div>
 
-          {/* BOTÃO CONTEÚDO INFINITO (SEMPRE DOURADO, COM CORRENTES SE FREE) */}
           {!sequenciaIdeias && (
             <div className="mt-10 text-center">
               {usuario?.plano === 'pro' ? (
-                /* Versão desbloqueada para Pro */
                 <div>
                   <button
                     onClick={gerarSequencia}
@@ -401,7 +386,6 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
                   </p>
                 </div>
               ) : (
-                /* Versão bloqueada para Free (dourado com correntes) */
                 <div>
                   <div className="relative inline-block">
                     <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 rounded-2xl opacity-40 blur-sm"></div>
@@ -485,7 +469,6 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
         </div>
       )}
 
-      {/* Rodapé com links de Termos e Privacidade */}
       <footer className="mt-20 border-t border-white/10 pt-6 text-center">
         <div className="flex justify-center gap-4 text-xs text-white/30">
           <a href="/termos" className="hover:text-white/50 transition">Termos de Serviço</a>
@@ -494,4 +477,5 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
       </footer>
     </div>
   );
-                                                 }
+                }
+      
