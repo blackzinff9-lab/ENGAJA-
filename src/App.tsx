@@ -3,6 +3,7 @@ import Dashboard from './Dashboard';
 import PaginaLogin from './LoginPage';
 import Termos from './Termos';
 import Privacidade from './Privacidade';
+import ConsentPage from './ConsentPage';
 import { Platform } from './types';
 import { StatusBackend } from './api';
 import { Zap, Sparkles, CheckCircle2, Menu, X } from 'lucide-react';
@@ -15,6 +16,13 @@ function App() {
   const [statusBackend, setStatusBackend] = useState<StatusBackend | null>(null);
   const [conteudoGerado, setConteudoGerado] = useState<any>(null);
   const [usuario, setUsuario] = useState<any>(null);
+  const [consentiu, setConsentiu] = useState(false);
+
+  // Verifica se o usuário já aceitou os termos
+  const verificarConsentimento = () => {
+    const aceito = localStorage.getItem('termos_aceitos');
+    setConsentiu(aceito === 'true');
+  };
 
   // Função auxiliar para extrair sub do token JWT se necessário
   const getUserIdFromToken = (token: string) => {
@@ -27,6 +35,7 @@ function App() {
   };
 
   useEffect(() => {
+    verificarConsentimento();
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     if (token) {
@@ -121,8 +130,15 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('termos_aceitos');
     setUsuario(null);
     setConteudoGerado(null);
+    setConsentiu(false);
+  };
+
+  const handleConsent = () => {
+    localStorage.setItem('termos_aceitos', 'true');
+    setConsentiu(true);
   };
 
   useEffect(() => {
@@ -145,6 +161,11 @@ function App() {
     );
   }
 
+  // Se usuário logado mas não consentiu, mostra página de consentimento
+  if (!consentiu) {
+    return <ConsentPage onConsent={handleConsent} />;
+                }
+    // Logado e consentiu — mostra o app completo
   return (
     <div className="min-h-screen bg-gray-950 text-white font-sans selection:bg-indigo-500/30">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -183,7 +204,8 @@ function App() {
           </button>
         </div>
       </nav>
-            <main className="relative z-10 pt-32 pb-20">
+
+      <main className="relative z-10 pt-32 pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <section className="text-center mb-16">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold mb-8 tracking-wide uppercase">
@@ -230,3 +252,4 @@ function App() {
 }
 
 export default App;
+  
