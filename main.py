@@ -305,7 +305,7 @@ async def verificar_status_assinatura(user_id: str):
     except Exception as e:
         print(f"[Verificação Assinatura] Erro: {e}")
         return {"status": "error", "mensagem": str(e)}
-        # ==========================================
+       # ==========================================
 # ENDPOINT PRINCIPAL DE GERAÇÃO
 # ==========================================
 
@@ -434,13 +434,39 @@ async def gerar_sequencia(req: RequisicaoSequencia, request: Request):
     if await get_plano_usuario(user_id) != "pro":
         raise HTTPException(402, detail="Recurso exclusivo para assinantes Pro.")
     nome_plataforma = {"tiktok": "TikTok", "instagram": "Instagram", "youtube": "YouTube"}[req.plataforma]
-    prompt = f"Você é um estrategista de conteúdo para {nome_plataforma}. Gere 10 ideias diversificadas para série sobre '{req.tema}'. JSON com 'ideias': [{{'titulo':'...', 'temaCurto':'...'}}]"
+
+    prompt = f"""Você é um estrategista de conteúdo especializado em {nome_plataforma}.
+Um criador está fazendo uma série de vídeos EXATAMENTE sobre este tema: "{req.tema}".
+Ele precisa de 10 ideias de títulos e descrições curtas para os próximos vídeos, TODAS DENTRO DESTE MESMO TEMA.
+
+Gere EXATAMENTE 10 ideias. Cada ideia deve ter:
+- "titulo": um título curto, chamativo e ESPECÍFICO sobre "{req.tema}" (máx. 80 caracteres). NÃO use títulos genéricos como "Dê um jeito de dar CONTINUAÇÃO".
+- "temaCurto": uma frase curta (máx. 100 caracteres) que explique o foco específico daquele vídeo dentro do tema "{req.tema}".
+
+REGRAS IMPORTANTES:
+- TODAS as ideias devem ser EXATAMENTE sobre "{req.tema}". NÃO desvie para outros assuntos.
+- Se o tema for "dicas de programação", fale sobre Python, JavaScript, carreira, ferramentas, etc. NUNCA fale sobre "continuação de conteúdo" ou "estratégias de engajamento".
+- Varie os ângulos dentro do mesmo assunto: tutoriais, listas, erros comuns, cases, ferramentas, curiosidades, etc.
+- Otimize para SEO no {nome_plataforma}.
+
+Responda APENAS com um JSON puro contendo a chave "ideias", que é um array de 10 objetos com "titulo" e "temaCurto".
+
+Exemplo para o tema "dicas de programação":
+{{"ideias": [
+  {{"titulo": "Python: 5 Truques que Todo Iniciante Deveria Saber 🐍", "temaCurto": "Comandos e atalhos em Python que aceleram o aprendizado e a produtividade"}},
+  {{"titulo": "JavaScript Assíncrono SEM Mistérios (Async/Await)", "temaCurto": "Descomplicando Promises, async e await com exemplos práticos"}},
+  ...
+]}}
+"""
+
     resposta = chamar_groq(prompt)
     dados = limpar_e_extrair_json(resposta)
     ideias = dados.get("ideias", [])
     if not isinstance(ideias, list) or len(ideias) == 0:
-        ideias = [{"titulo": f"{req.tema} - Parte {i+1}", "temaCurto": "Continuação"} for i in range(10)]
-    while len(ideias) < 10: ideias.append({"titulo": f"{req.tema} - Extra", "temaCurto": "Mais sobre"})
+        ideias = [{"titulo": f"{req.tema} - Parte {i+1}", "temaCurto": f"Aprofundando em {req.tema}"} for i in range(10)]
+    while len(ideias) < 10:
+        ideias.append({"titulo": f"{req.tema} - Extra {len(ideias)+1}", "temaCurto": f"Mais sobre {req.tema}"})
+
     await registrar_uso(user_id, "sequencia")
     return {"ideias": ideias[:10], "temaOriginal": req.tema, "plataforma": req.plataforma}
 
@@ -529,4 +555,4 @@ else:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000))) 
