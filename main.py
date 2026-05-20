@@ -138,7 +138,7 @@ async def verificar_token(token: str = Query(...)):
         email = payload.get("email", "")
 
         # Pro vitalício para o e-mail de teste
-        if email == "gustavofirmino0511@gmail.com":
+        plano_inicial = "pro" if email in ["gustavofirmino0511@gmail.com", "blackzinff9@gmail.com"] else "free"
             return {
                 "valido": True,
                 "nome": payload.get("nome", ""),
