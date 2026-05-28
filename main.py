@@ -538,6 +538,14 @@ async def status():
     }
 
 # ==========================================
+# ENDPOINT DE HEALTH CHECK (para cron-job)
+# ==========================================
+
+@app.get("/api/health")
+async def health_check():
+    return {"status": "ok"}
+
+# ==========================================
 # SERVIR FRONTEND (corrigido para PWA)
 # ==========================================
 
