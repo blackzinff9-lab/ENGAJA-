@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Shield, FileText, Lock, CheckCircle, ArrowRight } from 'lucide-react';
+import { useLanguage } from './LanguageContext';
 
 interface ConsentPageProps {
   onConsent: () => void;
 }
 
 export default function ConsentPage({ onConsent }: ConsentPageProps) {
+  const { t } = useLanguage();
   const [termosLidos, setTermosLidos] = useState(false);
   const [privacidadeLida, setPrivacidadeLida] = useState(false);
 
@@ -19,10 +21,9 @@ export default function ConsentPage({ onConsent }: ConsentPageProps) {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 mb-4 shadow-xl shadow-purple-500/20">
             <Shield className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold mb-2">Acordo Legal</h1>
+          <h1 className="text-2xl font-bold mb-2">{t('consent_title')}</h1>
           <p className="text-gray-400 text-sm max-w-md mx-auto">
-            Antes de acessar o ENGAJAÍ, você precisa concordar com nossos documentos legais.
-            Eles explicam como seus dados são tratados e as regras de uso da plataforma.
+            {t('consent_desc')}
           </p>
         </div>
 
@@ -35,17 +36,15 @@ export default function ConsentPage({ onConsent }: ConsentPageProps) {
                 <FileText className="w-5 h-5 text-purple-400" />
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold text-white mb-1">Termos de Serviço</h3>
-                <p className="text-gray-400 text-xs mb-3">
-                  Regras de uso do ENGAJAÍ, limitações de responsabilidade, cancelamento e reembolso.
-                </p>
+                <h3 className="font-semibold text-white mb-1">{t('consent_terms_title')}</h3>
+                <p className="text-gray-400 text-xs mb-3">{t('consent_terms_desc')}</p>
                 <div className="flex items-center gap-3">
                   <a
                     href="/termos"
                     target="_blank"
                     className="text-xs text-purple-400 hover:text-purple-300 underline transition"
                   >
-                    Ler documento completo
+                    {t('consent_terms_read')}
                   </a>
                   <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
                     <input
@@ -54,7 +53,7 @@ export default function ConsentPage({ onConsent }: ConsentPageProps) {
                       onChange={(e) => setTermosLidos(e.target.checked)}
                       className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500"
                     />
-                    Li e concordo com os Termos de Serviço
+                    {t('consent_terms_check')}
                   </label>
                 </div>
               </div>
@@ -68,17 +67,15 @@ export default function ConsentPage({ onConsent }: ConsentPageProps) {
                 <Lock className="w-5 h-5 text-purple-400" />
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold text-white mb-1">Política de Privacidade</h3>
-                <p className="text-gray-400 text-xs mb-3">
-                  Como seus dados pessoais são coletados, tratados e protegidos, em conformidade com a LGPD.
-                </p>
+                <h3 className="font-semibold text-white mb-1">{t('consent_privacy_title')}</h3>
+                <p className="text-gray-400 text-xs mb-3">{t('consent_privacy_desc')}</p>
                 <div className="flex items-center gap-3">
                   <a
                     href="/privacidade"
                     target="_blank"
                     className="text-xs text-purple-400 hover:text-purple-300 underline transition"
                   >
-                    Ler documento completo
+                    {t('consent_privacy_read')}
                   </a>
                   <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
                     <input
@@ -87,7 +84,7 @@ export default function ConsentPage({ onConsent }: ConsentPageProps) {
                       onChange={(e) => setPrivacidadeLida(e.target.checked)}
                       className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500"
                     />
-                    Li e concordo com a Política de Privacidade
+                    {t('consent_privacy_check')}
                   </label>
                 </div>
               </div>
@@ -106,14 +103,14 @@ export default function ConsentPage({ onConsent }: ConsentPageProps) {
           }`}
         >
           <CheckCircle className="w-5 h-5" />
-          Concordar e Acessar o ENGAJAÍ
+          {t('consent_agree')}
           <ArrowRight className="w-5 h-5" />
         </button>
 
         <p className="text-center text-gray-500 text-xs mt-4">
-          Você pode revogar este consentimento a qualquer momento entrando em contato conosco.
+          {t('consent_revoke')}
         </p>
       </div>
     </div>
   );
-      }
+}
