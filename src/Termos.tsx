@@ -43,10 +43,11 @@ export default function Termos() {
         <h2 className="text-lg font-semibold text-white mt-6">10. Alterações nos Termos</h2>
         <p>Reservamo-nos o direito de modificar estes Termos. Avisaremos sobre alterações significativas por e-mail ou por um aviso no aplicativo.</p>
         
-        <h2 className="text-lg font-semibold text-white mt-6">11. Legislação e Foro</h2>
-        <p>Estes Termos são regidos pelas leis do Brasil. Fica eleito o Foro da Comarca de São Paulo/SP.</p>
+        <h2 className="text-lg font-semibold text-white mt-6">11. Legislação Aplicável e Foro</h2>
+        <p>Estes Termos de Serviço são regidos exclusivamente pelas leis da República Federativa do Brasil. Fica eleito o Foro da Comarca de São Paulo/SP para dirimir quaisquer dúvidas ou controvérsias decorrentes deste instrumento, com expressa renúncia a qualquer outro, por mais privilegiado que seja.</p>
+        <p className="text-gray-400 text-xs mt-2">This agreement is governed exclusively by Brazilian law. Any disputes shall be resolved by the courts of São Paulo, Brazil.</p>
         
-        <p className="text-white/40 text-xs mt-10">Última atualização: 18 de maio de 2025</p>
+        <p className="text-white/40 text-xs mt-10">Última atualização: 16 de julho de 2025</p>
       </div>
     </div>
   );
