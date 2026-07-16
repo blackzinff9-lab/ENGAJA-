@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Zap, Sparkles, TrendingUp, Video, Hash, Wand2, ArrowRight, Loader2 } from 'lucide-react';
 import { StatusBackend, urlLoginGoogle } from './api';
+import { useLanguage } from './LanguageContext';
 
 interface LoginProps {
   aoEntrar: (nome: string, email: string, avatar: string) => void;
@@ -8,6 +9,7 @@ interface LoginProps {
 }
 
 export default function PaginaLogin({ aoEntrar, statusBackend }: LoginProps) {
+  const { t } = useLanguage();
   const [carregandoDemo, setCarregandoDemo] = useState(false);
   const googleConfigurado = statusBackend?.google_login_configurado ?? false;
 
@@ -24,9 +26,9 @@ export default function PaginaLogin({ aoEntrar, statusBackend }: LoginProps) {
   };
 
   const recursos = [
-    { icone: TrendingUp, rotulo: 'Tendências Reais', desc: 'APIs oficiais + IA' },
-    { icone: Video, rotulo: 'Roteiros Completos', desc: 'Prontos para gravar' },
-    { icone: Hash, rotulo: 'Hashtags Estratégicas', desc: 'Maximize seu alcance' },
+    { icone: TrendingUp, rotulo: t('hero_feature1'), desc: 'APIs oficiais + IA' },
+    { icone: Video, rotulo: t('hero_feature2'), desc: 'Prontos para gravar' },
+    { icone: Hash, rotulo: t('hero_feature3'), desc: 'Maximize seu alcance' },
     { icone: Wand2, rotulo: 'IA Avançada', desc: 'Llama 4 Scout 17B' },
   ];
 
@@ -44,11 +46,11 @@ export default function PaginaLogin({ aoEntrar, statusBackend }: LoginProps) {
             <Zap className="w-10 h-10 text-white" fill="white" />
           </div>
           <h1 className="text-4xl font-black tracking-tight mb-2">
-            <span className="gradient-text">ENGAJA</span>
+            <span className="gradient-text">{t('login_title')}</span>
             <span className="text-white/30 font-light">Í</span>
           </h1>
           <p className="text-white/50 text-sm max-w-xs mx-auto">
-            Seu assistente inteligente para criar conteúdo viral nas redes sociais
+            {t('login_subtitle')}
           </p>
         </div>
 
@@ -73,9 +75,9 @@ export default function PaginaLogin({ aoEntrar, statusBackend }: LoginProps) {
         >
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/50 to-transparent"></div>
 
-          <h2 className="text-xl font-bold text-center mb-2">Comece Agora</h2>
+          <h2 className="text-xl font-bold text-center mb-2">{t('login_start')}</h2>
           <p className="text-white/40 text-sm text-center mb-6">
-            Faça login com sua conta Google para acessar o ENGAJAÍ
+            {t('login_google_desc')}
           </p>
 
           {/* Botão de login com Google (obrigatório) */}
@@ -90,7 +92,7 @@ export default function PaginaLogin({ aoEntrar, statusBackend }: LoginProps) {
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
             </svg>
-            <span>Entrar com Google</span>
+            <span>{t('login_google_btn')}</span>
             <ArrowRight className="w-4 h-4"/>
           </button>
                     {/* Nota sobre segurança */}
@@ -98,14 +100,14 @@ export default function PaginaLogin({ aoEntrar, statusBackend }: LoginProps) {
             <div className="flex items-center gap-2 text-xs text-purple-300/80">
               <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
               <span>
-                Login seguro via Google OAuth 2.0. Não armazenamos sua senha.
+                {t('login_security')}
               </span>
             </div>
           </div>
 
           {/* Plataformas */}
           <div className="flex items-center justify-center gap-6 mt-5 pt-5 border-t border-white/5">
-            <span className="text-xs text-white/20">Compatível com:</span>
+            <span className="text-xs text-white/20">{t('login_compatible')}</span>
             <div className="flex items-center gap-4">
               <span className="text-sm font-bold text-[#FE2C55]">TikTok</span>
               <span className="text-sm font-bold bg-gradient-to-r from-[#833AB4] via-[#E4405F] to-[#FCAF45] bg-clip-text text-transparent">Instagram</span>
@@ -116,13 +118,13 @@ export default function PaginaLogin({ aoEntrar, statusBackend }: LoginProps) {
 
         {/* Links de Termos e Privacidade */}
         <div className="text-center text-white/20 text-xs mt-6 flex gap-4 justify-center">
-          <a href="/termos" className="hover:text-white/40 transition">Termos de Serviço</a>
-          <a href="/privacidade" className="hover:text-white/40 transition">Política de Privacidade</a>
+          <a href="/termos" className="hover:text-white/40 transition">{t('login_terms')}</a>
+          <a href="/privacidade" className="hover:text-white/40 transition">{t('login_privacy')}</a>
         </div>
 
         {/* Rodapé */}
         <p className="text-center text-white/20 text-xs mt-6 animate-fade-in" style={{ animationDelay: '0.4s' }}>
-          IA powered by Groq • Modelo Llama 4 Scout 17B • Chamadas reais à API
+          {t('login_footer')}
         </p>
       </div>
     </div>
