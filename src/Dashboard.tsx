@@ -86,7 +86,7 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
       const resposta = await fetch('/api/gerar-sequencia', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ tema, plataforma }),
+        body: JSON.stringify({ tema, plataforma, idioma: lang }),
       });
       if (!resposta.ok) {
         const err = await resposta.json();
@@ -111,7 +111,7 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
       const resposta = await fetch('/api/gerar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ tema: temaCurto, plataforma }),
+        body: JSON.stringify({ tema: temaCurto, plataforma, idioma: lang }),
       });
       const dados = await resposta.json();
       setConteudoExtra(dados);
@@ -493,4 +493,4 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
       </footer>
     </div>
   );
-                }
+}
