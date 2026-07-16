@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { Platform, PLATFORM_CONFIG } from './types';
 import { StatusBackend } from './api';
+import { useLanguage } from './LanguageContext';
 
 interface DashboardProps {
   aoGerar: (tema: string, plataforma: Platform) => void;
@@ -15,14 +16,24 @@ interface DashboardProps {
   usuario: any;
 }
 
-const sugestoesTemas = [
-  { emoji: "🥗", rotulo: "Receitas veganas", valor: "receitas veganas" },
-  { emoji: "🏋️", rotulo: "Treino HIIT", valor: "treino HIIT em casa" },
-  { emoji: "💻", rotulo: "Dicas de programação", valor: "dicas de programação" },
-  { emoji: "💰", rotulo: "Renda extra", valor: "como ganhar renda extra online" },
+const sugestoesTemasPt = [
+  { emoji: "🥗", rotulo: 'Receitas veganas', valor: "receitas veganas" },
+  { emoji: "🏋️", rotulo: 'Treino HIIT', valor: "treino HIIT em casa" },
+  { emoji: "💻", rotulo: 'Dicas de programação', valor: "dicas de programação" },
+  { emoji: "💰", rotulo: 'Renda extra', valor: "como ganhar renda extra online" },
+];
+
+const sugestoesTemasEn = [
+  { emoji: "🥗", rotulo: 'Vegan Recipes', valor: "vegan recipes" },
+  { emoji: "🏋️", rotulo: 'HIIT Workout', valor: "hiit workout at home" },
+  { emoji: "💻", rotulo: 'Programming Tips', valor: "programming tips" },
+  { emoji: "💰", rotulo: 'Extra Income', valor: "how to earn extra income online" },
 ];
 
 export default function Dashboard({ aoGerar, carregando, backendOk, statusBackend, conteudoGerado, usuario }: DashboardProps) {
+  const { t, lang } = useLanguage();
+  const sugestoesTemas = lang === 'pt' ? sugestoesTemasPt : sugestoesTemasEn;
+
   const [tema, setTema] = useState('');
   const [plataforma, setPlataforma] = useState<Platform | null>(null);
   const [focado, setFocado] = useState(false);
@@ -61,7 +72,7 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
         statusBackend.youtube_configurado && '✅ YouTube API',
         statusBackend.trends_mcp_configurado && '✅ Trends MCP'
       ].filter(Boolean).join('  •  ')
-    : 'Verificando serviços...';
+    : t('dash_status_verifying');
 
   const gerarSequencia = async () => {
     if (!tema || !plataforma) return;
@@ -147,36 +158,36 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
       <div className="text-center mb-8">
         <div className="inline-flex items-center gap-2 bg-white/5 rounded-full px-4 py-1.5 mb-4 text-xs text-white/50">
           <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
-          <span>Tendências reais • IA real • Resultados profissionais</span>
+          <span>{t('dash_trends')}</span>
         </div>
 
         {usuario && (
           <div className="flex flex-col items-center gap-3 mb-6">
             <div className="flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-white/5 text-white/60">
-              Plano atual: <span className="font-bold text-white">{usuario.plano === 'pro' ? 'PRO' : 'FREE'}</span>
+              {t('nav_plan')}: <span className="font-bold text-white">{usuario.plano === 'pro' ? t('dash_plan_pro') : t('dash_plan_free')}</span>
             </div>
 
             {usuario.plano !== 'pro' && (
               <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-4 max-w-md mx-auto">
                 <h3 className="text-sm font-bold text-amber-400 mb-2 flex items-center gap-1">
-                  <Crown className="w-4 h-4" /> Vantagens do Plano Pro
+                  <Crown className="w-4 h-4" /> {t('dash_benefits_title')}
                 </h3>
                 <ul className="text-xs text-gray-300 space-y-1 text-left">
                   <li className="flex items-start gap-2">
                     <CheckCircle className="w-3 h-3 text-emerald-400 mt-0.5 flex-shrink-0" />
-                    Até <strong className="text-white">10 ideias por dia</strong> (3x mais que o Free)
+                    {t('dash_benefit1')}
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle className="w-3 h-3 text-emerald-400 mt-0.5 flex-shrink-0" />
-                    <strong className="text-white">Conteúdo infinito interligados</strong>
+                    {t('dash_benefit2')}
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle className="w-3 h-3 text-emerald-400 mt-0.5 flex-shrink-0" />
-                    Roteiros <strong className="text-white">ainda mais detalhados</strong> e otimizados
+                    {t('dash_benefit3')}
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle className="w-3 h-3 text-emerald-400 mt-0.5 flex-shrink-0" />
-                    Tenha acesso a <strong className="text-white">funcionalidades exclusivas</strong>
+                    {t('dash_benefit4')}
                   </li>
                 </ul>
               </div>
@@ -192,123 +203,126 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             >
               <span className="absolute inset-0 bg-gradient-to-r from-yellow-300 to-amber-400 opacity-0 group-hover:opacity-100 transition-opacity"></span>
               <Crown className="w-5 h-5 relative z-10" />
-              <span className="relative z-10">Assinar Pro (R$14,97/mês)</span>
+              <span className="relative z-10">{t('dash_subscribe')}</span>
               <ArrowRight className="w-5 h-5 relative z-10" />
             </button>
           </div>
         )}
       </div>
+      {/* Status do Servidor */}
+<div className="mb-6 p-3 rounded-xl bg-white/5 border border-white/10">
+  <div className="flex items-center gap-3 text-xs text-white/40">
+    <Server className="w-3.5 h-3.5 text-purple-400/70" />
+    <span>{servicosTexto}</span>
+  </div>
+</div>
 
-      <div className="mb-6 p-3 rounded-xl bg-white/5 border border-white/10">
-        <div className="flex items-center gap-3 text-xs text-white/40">
-          <Server className="w-3.5 h-3.5 text-purple-400/70" />
-          <span>{servicosTexto}</span>
-        </div>
-      </div>
-
-      <form onSubmit={aoEnviar} className="space-y-5">
-        <div className="relative">
-          <label className="block text-sm font-medium text-white/60 mb-2">
-            <Target className="w-4 h-4 inline mr-1.5 text-purple-400" />
-            Qual o tema do seu vídeo?
-          </label>
-          <input 
-            type="text"
-            value={tema}
-            onChange={(e) => setTema(e.target.value)}
-            onFocus={() => setFocado(true)}
-            onBlur={() => setFocado(false)}
-            className={`w-full bg-white/5 border rounded-2xl px-5 py-4 text-white placeholder-white/20 outline-none transition ${
-              focado ? 'border-purple-500/50' : 'border-white/10'
-            }`}
-            placeholder="Ex: receitas veganas, dicas de finanças..."
-            maxLength={200}
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {sugestoesTemas.map((sugestao) => (
-            <button
-              key={sugestao.valor}
-              type="button"
-              onClick={() => setTema(sugestao.valor)}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-white hover:border-white/20 transition"
-            >
-              <span>{sugestao.emoji}</span>
-              <span>{sugestao.rotulo}</span>
-            </button>
-          ))}
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          {(Object.keys(PLATFORM_CONFIG) as Platform[]).map((chave) => {
-            const info = PLATFORM_CONFIG[chave];
-            const selecionada = plataforma === chave;
-            return (
-              <button
-                key={chave}
-                type="button"
-                onClick={() => setPlataforma(chave)}
-                className={`rounded-2xl p-4 text-center transition-all ${
-                  selecionada
-                    ? 'bg-purple-500/20 border-2 border-purple-400 shadow-lg shadow-purple-500/10 scale-[1.02]'
-                    : 'bg-white/5 border border-white/10 hover:border-white/20'
-                }`}
-              >
-                <div className={`text-2xl mb-2 ${selecionada ? 'text-white' : 'text-white/40'}`}>
-                  {React.createElement(info.icone)}
-                </div>
-                <div className={`text-sm font-bold ${selecionada ? 'text-white' : 'text-white/60'}`}>
-                  {info.nome}
-                </div>
-                <div className="text-[10px] text-white/25 mt-1">{info.descricao}</div>
-              </button>
-            );
-          })}
-        </div>
-
+{/* Formulário */}
+<form onSubmit={aoEnviar} className="space-y-5">
+  <div className="relative">
+    <label className="block text-sm font-medium text-white/60 mb-2">
+      <Target className="w-4 h-4 inline mr-1.5 text-purple-400" />
+      {t('dash_topic_label')}
+    </label>
+    <input 
+      type="text"
+      value={tema}
+      onChange={(e) => setTema(e.target.value)}
+      onFocus={() => setFocado(true)}
+      onBlur={() => setFocado(false)}
+      className={`w-full bg-white/5 border rounded-2xl px-5 py-4 text-white placeholder-white/20 outline-none transition ${
+        focado ? 'border-purple-500/50' : 'border-white/10'
+      }`}
+      placeholder={t('dash_topic_placeholder')}
+      maxLength={200}
+    />
+  </div>
+  <div className="flex flex-wrap gap-2">
+    {sugestoesTemas.map((sugestao) => (
+      <button
+        key={sugestao.valor}
+        type="button"
+        onClick={() => setTema(sugestao.valor)}
+        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-white hover:border-white/20 transition"
+      >
+        <span>{sugestao.emoji}</span>
+        <span>{sugestao.rotulo}</span>
+      </button>
+    ))}
+  </div>
+  <div className="grid grid-cols-3 gap-3">
+    {(Object.keys(PLATFORM_CONFIG) as Platform[]).map((chave) => {
+      const info = PLATFORM_CONFIG[chave];
+      const selecionada = plataforma === chave;
+      return (
         <button
-          type="submit"
-          disabled={!tema.trim() || !plataforma || carregando}
-          className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all ${
-            !tema.trim() || !plataforma || carregando
-              ? 'bg-white/5 text-white/20 cursor-not-allowed'
-              : 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/20'
+          key={chave}
+          type="button"
+          onClick={() => setPlataforma(chave)}
+          className={`rounded-2xl p-4 text-center transition-all ${
+            selecionada
+              ? 'bg-purple-500/20 border-2 border-purple-400 shadow-lg shadow-purple-500/10 scale-[1.02]'
+              : 'bg-white/5 border border-white/10 hover:border-white/20'
           }`}
         >
-          {carregando ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>Gerando conteúdo...</span>
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-5 h-5" />
-              <span>Gerar Conteúdo</span>
-              <ArrowRight className="w-5 h-5" />
-            </>
-          )}
+          <div className={`text-2xl mb-2 ${selecionada ? 'text-white' : 'text-white/40'}`}>
+            {React.createElement(info.icone)}
+          </div>
+          <div className={`text-sm font-bold ${selecionada ? 'text-white' : 'text-white/60'}`}>
+            {info.nome}
+          </div>
+          <div className="text-[10px] text-white/25 mt-1">{info.descricao}</div>
         </button>
-        {erroLimite && (
-          <p className="text-xs text-amber-400/70 text-center flex items-center justify-center gap-1">
-            <AlertCircle className="w-3 h-3" />
-            {erroLimite}
-          </p>
-        )}
-        {!backendOk && (
-          <p className="text-xs text-amber-400/70 text-center">
-            ⚠️ Serviços ainda não verificados – o conteúdo pode demorar mais.
-          </p>
-        )}
-      </form>
-            {conteudoGerado && (
+      );
+    })}
+  </div>
+
+  <button
+    type="submit"
+    disabled={!tema.trim() || !plataforma || carregando}
+    className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all ${
+      !tema.trim() || !plataforma || carregando
+        ? 'bg-white/5 text-white/20 cursor-not-allowed'
+        : 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/20'
+    }`}
+  >
+    {carregando ? (
+      <>
+        <Loader2 className="w-5 h-5 animate-spin" />
+        <span>{t('dash_generating')}</span>
+      </>
+    ) : (
+      <>
+        <Sparkles className="w-5 h-5" />
+        <span>{t('dash_generate')}</span>
+        <ArrowRight className="w-5 h-5" />
+      </>
+    )}
+  </button>
+  {erroLimite && (
+    <p className="text-xs text-amber-400/70 text-center flex items-center justify-center gap-1">
+      <AlertCircle className="w-3 h-3" />
+      {erroLimite}
+    </p>
+  )}
+  {!backendOk && (
+    <p className="text-xs text-amber-400/70 text-center">
+      {t('dash_limit_warning')}
+    </p>
+  )}
+</form>
+            {/* EXIBIÇÃO DO CONTEÚDO GERADO */}
+      {conteudoGerado && (
         <div className="mt-10 space-y-6 animate-fade-in">
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-purple-400" />
-            Seu Conteúdo Viral
+            {t('dash_viral_title')}
           </h2>
 
+          {/* Título */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Título</span>
+              <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">{t('dash_field_title')}</span>
               <button onClick={() => copiarTexto(conteudoGerado.titulo, 'titulo')} className="text-white/30 hover:text-white transition">
                 {copiado === 'titulo' ? <CheckCircle className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
               </button>
@@ -316,9 +330,10 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             <p className="text-white text-lg font-semibold">{conteudoGerado.titulo}</p>
           </div>
 
+          {/* Descrição */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Descrição</span>
+              <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">{t('dash_field_description')}</span>
               <button onClick={() => copiarTexto(conteudoGerado.descricao, 'descricao')} className="text-white/30 hover:text-white transition">
                 {copiado === 'descricao' ? <CheckCircle className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
               </button>
@@ -326,9 +341,10 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             <p className="text-white/80">{conteudoGerado.descricao}</p>
           </div>
 
+          {/* Hashtags */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Hashtags</span>
+              <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">{t('dash_field_hashtags')}</span>
               <button onClick={() => copiarTexto(conteudoGerado.hashtags, 'hashtags')} className="text-white/30 hover:text-white transition">
                 {copiado === 'hashtags' ? <CheckCircle className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
               </button>
@@ -338,9 +354,10 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             </p>
           </div>
 
+          {/* Roteiro */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Roteiro</span>
+              <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">{t('dash_field_script')}</span>
               <button onClick={() => copiarTexto(conteudoGerado.roteiro, 'roteiro')} className="text-white/30 hover:text-white transition">
                 {copiado === 'roteiro' ? <CheckCircle className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
               </button>
@@ -348,9 +365,10 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             <p className="text-white/80 whitespace-pre-line">{conteudoGerado.roteiro}</p>
           </div>
 
+          {/* Ideia de Edição */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Ideia de Edição</span>
+              <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">{t('dash_field_editing')}</span>
               <button onClick={() => copiarTexto(conteudoGerado.ideiaEdicao, 'ideiaEdicao')} className="text-white/30 hover:text-white transition">
                 {copiado === 'ideiaEdicao' ? <CheckCircle className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
               </button>
@@ -358,6 +376,7 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             <p className="text-white/80">{conteudoGerado.ideiaEdicao}</p>
           </div>
 
+          {/* BOTÃO CONTEÚDO INFINITO */}
           {!sequenciaIdeias && (
             <div className="mt-10 text-center">
               {usuario?.plano === 'pro' ? (
@@ -371,19 +390,17 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
                     {carregandoSequencia ? (
                       <>
                         <Loader2 className="w-5 h-5 animate-spin relative z-10" />
-                        <span className="relative z-10">Gerando sequência...</span>
+                        <span className="relative z-10">{t('dash_infinite_generating')}</span>
                       </>
                     ) : (
                       <>
                         <Unlock className="w-5 h-5 relative z-10" />
-                        <span className="relative z-10">Conteúdo Infinito</span>
+                        <span className="relative z-10">{t('dash_infinite')}</span>
                         <ArrowRight className="w-5 h-5 relative z-10" />
                       </>
                     )}
                   </button>
-                  <p className="text-xs text-amber-400/70 mt-2">
-                    ✨ 10 ideias de futuros vídeos interligadas para manter seu conteúdo sempre atualizado.
-                  </p>
+                  <p className="text-xs text-amber-400/70 mt-2">{t('dash_infinite_desc')}</p>
                 </div>
               ) : (
                 <div>
@@ -395,16 +412,14 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
                     >
                       <span className="absolute inset-0 bg-black/40 rounded-2xl z-10"></span>
                       <Lock className="w-5 h-5 relative z-20 text-white" />
-                      <span className="relative z-20 text-white/90">Conteúdo Infinito</span>
-                      <span className="relative z-20 text-xs bg-black/40 px-2 py-0.5 rounded-full text-amber-400 ml-2">PRO</span>
+                      <span className="relative z-20 text-white/90">{t('dash_infinite')}</span>
+                      <span className="relative z-20 text-xs bg-black/40 px-2 py-0.5 rounded-full text-amber-400 ml-2">{t('dash_plan_pro')}</span>
                     </button>
                     <div className="absolute -top-2 -right-2 z-30">
                       <Lock className="w-5 h-5 text-amber-400 drop-shadow-lg" />
                     </div>
                   </div>
-                  <p className="text-xs text-amber-400/70 mt-2">
-                    ✨ 10 ideias de futuros vídeos interligadas para manter seu conteúdo sempre atualizado.
-                  </p>
+                  <p className="text-xs text-amber-400/70 mt-2">{t('dash_infinite_locked')}</p>
                 </div>
               )}
             </div>
@@ -414,7 +429,7 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
             <div className="mt-10 space-y-4">
               <h2 className="text-2xl font-bold text-white flex items-center gap-2">
                 <Sparkles className="w-6 h-6 text-amber-400" />
-                Próximos 10 Vídeos (Diversos)
+                {t('dash_next_videos')}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {sequenciaIdeias.map((ideia: any, idx: number) => (
@@ -433,30 +448,30 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
                         {carregandoExtra && ideiaExpandida === idx ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                          'Gerar Conteúdo'
+                          t('dash_expand_button')
                         )}
                       </button>
                     </div>
                     {ideiaExpandida === idx && conteudoExtra && (
                       <div className="mt-4 pt-4 border-t border-white/10 space-y-3 animate-fade-in">
                         <div className="bg-white/5 rounded-xl p-3">
-                          <span className="text-xs text-purple-400 font-bold">TÍTULO</span>
+                          <span className="text-xs text-purple-400 font-bold">{t('dash_field_title')}</span>
                           <p className="text-white text-sm">{conteudoExtra.titulo}</p>
                         </div>
                         <div className="bg-white/5 rounded-xl p-3">
-                          <span className="text-xs text-purple-400 font-bold">DESCRIÇÃO</span>
+                          <span className="text-xs text-purple-400 font-bold">{t('dash_field_description')}</span>
                           <p className="text-white/80 text-xs">{conteudoExtra.descricao}</p>
                         </div>
                         <div className="bg-white/5 rounded-xl p-3">
-                          <span className="text-xs text-purple-400 font-bold">HASHTAGS</span>
+                          <span className="text-xs text-purple-400 font-bold">{t('dash_field_hashtags')}</span>
                           <p className="text-emerald-400 text-xs">{conteudoExtra.hashtags}</p>
                         </div>
                         <div className="bg-white/5 rounded-xl p-3">
-                          <span className="text-xs text-purple-400 font-bold">ROTEIRO</span>
+                          <span className="text-xs text-purple-400 font-bold">{t('dash_field_script')}</span>
                           <p className="text-white/80 text-xs whitespace-pre-line">{conteudoExtra.roteiro}</p>
                         </div>
                         <div className="bg-white/5 rounded-xl p-3">
-                          <span className="text-xs text-purple-400 font-bold">IDEIA DE EDIÇÃO</span>
+                          <span className="text-xs text-purple-400 font-bold">{t('dash_field_editing')}</span>
                           <p className="text-white/80 text-xs">{conteudoExtra.ideiaEdicao}</p>
                         </div>
                       </div>
@@ -469,13 +484,13 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
         </div>
       )}
 
+      {/* Rodapé */}
       <footer className="mt-20 border-t border-white/10 pt-6 text-center">
         <div className="flex justify-center gap-4 text-xs text-white/30">
-          <a href="/termos" className="hover:text-white/50 transition">Termos de Serviço</a>
-          <a href="/privacidade" className="hover:text-white/50 transition">Política de Privacidade</a>
+          <a href="/termos" className="hover:text-white/50 transition">{t('dash_terms')}</a>
+          <a href="/privacidade" className="hover:text-white/50 transition">{t('dash_privacy')}</a>
         </div>
       </footer>
     </div>
   );
                 }
-      
