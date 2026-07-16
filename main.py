@@ -51,10 +51,12 @@ def get_base_url(request=None):
 class RequisicaoConteudo(BaseModel):
     tema: str
     plataforma: str
+    idioma: str = "pt"  # ✅ NOVO: campo de idioma, padrão português
 
 class RequisicaoSequencia(BaseModel):
     tema: str
     plataforma: str
+    idioma: str = "pt"  # ✅ Também para sequência
 
 # ========== GOOGLE OAUTH ==========
 @app.get("/api/auth/google/login")
@@ -211,7 +213,7 @@ def chamar_groq(prompt: str) -> str:
     if not GROQ_API_KEY: raise HTTPException(500, detail="GROQ_API_KEY não configurada")
     resp = requests.post(GROQ_URL, headers={"Content-Type": "application/json", "Authorization": f"Bearer {GROQ_API_KEY}"},
                         json={"model": GROQ_MODEL, "messages": [
-                            {"role": "system", "content": "Você é um especialista brasileiro em criação de conteúdo viral. Responda SEMPRE e APENAS com um objeto JSON válido e completo. NUNCA use markdown, NUNCA use array para 'hashtags' ou 'roteiro' (devem ser strings). As chaves devem ser exatamente: titulo, descricao, hashtags, roteiro, ideiaEdicao, tendencias."},
+                            {"role": "system", "content": "You are a Brazilian specialist in viral content creation. Reply ONLY with a valid JSON object."},
                             {"role": "user", "content": prompt}
                         ], "temperature": 0.8, "max_tokens": 8000}, timeout=90)
     if resp.status_code == 429: raise HTTPException(429, detail="Limite de requisições do Groq atingido.")
@@ -306,13 +308,16 @@ async def verificar_status_assinatura(user_id: str):
         print(f"[Verificação Assinatura] Erro: {e}")
         return {"status": "error", "mensagem": str(e)}
         # ==========================================
-# ENDPOINT PRINCIPAL DE GERAÇÃO
+# ENDPOINT PRINCIPAL DE GERAÇÃO (COM IDIOMA)
 # ==========================================
 
 @app.post("/api/gerar")
 async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
     if not req.tema.strip() or req.plataforma not in ("tiktok", "instagram", "youtube"):
         raise HTTPException(400, detail="Dados inválidos")
+
+    # Definir idioma (padrão português)
+    idioma = req.idioma if req.idioma in ("pt", "en") else "pt"
 
     # Autenticação
     user_id = None
@@ -343,17 +348,34 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
     if not dados_tendencias:
         dados_tendencias = fallback_groq_pesquisa(req.tema, nome_plataforma) or ""
 
-    # Instruções específicas por plataforma
+    # Instruções específicas por plataforma (agora no idioma escolhido)
     instrucoes = ""
     if req.plataforma == "youtube":
-        instrucoes = """
+        if idioma == "en":
+            instrucoes = """
+**YouTube:**
+- Title: Objective, with the main keyword on the left and a **maximum of 75 characters**. Must generate curiosity.
+- Description: The core of SEO. Must be long (**150–300 words**), functioning as a mini article. Repeat the main keyword **2–4 times** and include related keywords **2–3 times**. Include a call to action (subscribe, comment). Use **3 to 5 strategic hashtags** at the end of the description.
+- Script: For a long or medium-length video. Should have an introduction that summarizes the value, detailed development, and a conclusion with a strong call to action.
+"""
+        else:
+            instrucoes = """
 **YouTube:**
 - Título: Objetivo, com a palavra-chave principal à esquerda e no **máximo 75 caracteres**. Deve gerar curiosidade.
 - Descrição: A peça central do SEO. Deve ser longa (**150–300 palavras**), funcionando como um mini artigo. Repita a palavra-chave principal **2–4 vezes** e inclua palavras-chave relacionadas **2–3 vezes**. Inclua uma chamada para ação (inscrever-se, comentar). Use de **3 a 5 hashtags** estratégicas no final da descrição.
 - Roteiro: Para um vídeo de formato longo ou médio. Deve ter uma introdução que resuma o valor, desenvolvimento detalhado e uma conclusão com call to action forte.
 """
     elif req.plataforma == "tiktok":
-        instrucoes = """
+        if idioma == "en":
+            instrucoes = """
+**TikTok:**
+- Title (on-screen text and caption): Use **long-tail keywords** and eye-catching text in the first few seconds to boost retention. TikTok's AI analyzes on-screen text, so it's crucial. Create a very strong hook in the first 3 seconds.
+- Description: Short and direct, with the **most important keywords in the first 100 characters**.
+- Hashtags: Use **few but good ones**: 1-2 trending, 1-2 niche, and 1 of your brand (#ENGAJAÍ).
+- Script: For a short vertical video. Should be dynamic, with quick cuts, on-screen text (which serves as SEO). Focus on retention and an explosive opening hook.
+"""
+        else:
+            instrucoes = """
 **TikTok:**
 - Título (Texto na tela e legenda): Use **palavras-chave de cauda longa** e texto chamativo nos primeiros segundos para incentivar a retenção. A IA do TikTok analisa o texto na tela, então ele é crucial. Crie um gancho fortíssimo nos primeiros 3 segundos.
 - Descrição: Curta e direta, com as **palavras-chave mais importantes nos primeiros 100 caracteres**.
@@ -361,15 +383,46 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
 - Roteiro: Para um vídeo curto e vertical. Deve ser dinâmico, com cortes rápidos, texto na tela (que serve como SEO). Foque em retenção e um gancho inicial explosivo.
 """
     elif req.plataforma == "instagram":
-        instrucoes = """
+        if idioma == "en":
+            instrucoes = """
+**Instagram:**
+- Title (on-screen text): Creative, with a **main keyword in the first 3 seconds** of on-screen text. The goal is to generate "saves" and connection.
+- Description: The first sentence is crucial (**hook + SEO**). Use paragraphs, emojis, and formatting to create scannable text. Include a call to action. Use **3 to 5 relevant hashtags** (preferably at the end or in the first comment).
+- Script: For a Reel. Should be visually attractive, with an introduction that grabs attention immediately, value development, and a conclusion that encourages saving or sharing.
+"""
+        else:
+            instrucoes = """
 **Instagram:**
 - Título (Texto na tela): Criativo, com uma **palavra-chave principal nos primeiros 3 segundos** do texto na tela. O objetivo é gerar "salvamentos" e conexão.
 - Descrição: A primeira frase é crucial (**gancho + SEO**). Use parágrafos, emojis e formatação para criar um texto escaneável. Inclua uma chamada para ação. Use de **3 a 5 hashtags** relevantes (de preferência no final ou no primeiro comentário).
 - Roteiro: Para um Reels. Deve ser visualmente atraente, com uma introdução que prenda a atenção imediatamente, desenvolvimento do valor e uma conclusão que incentive a salvar ou compartilhar.
 """
 
-    prompt_principal = f"""
-Você é um criador de conteúdo viral brasileiro especializado em {nome_plataforma}.
+    # Prompt principal no idioma escolhido
+    if idioma == "en":
+        prompt_principal = f"""You are a viral content creator specialized in {nome_plataforma}.
+
+Video topic: "{req.tema}"
+
+Trend data (use as inspiration):
+{f"BEGINNING OF TREND DATA:\n{dados_tendencias}\nEND OF TREND DATA\n" if dados_tendencias else "No external data available."}
+
+STRICT PLATFORM-SPECIFIC INSTRUCTIONS:
+{instrucoes}
+
+MANDATORY RESPONSE FORMAT:
+1. Reply ONLY with the pure JSON, no introduction, no markdown, no comments.
+2. The JSON MUST have exactly these keys: "titulo", "descricao", "hashtags", "roteiro", "ideiaEdicao", "tendencias".
+3. "hashtags": SINGLE STRING with tags separated by spaces, each starting with #. DO NOT USE ARRAY.
+4. "roteiro": SINGLE STRING containing the COMPLETE video script. Divide into scenes with [SCENE X – OPENING (0s-3s)], describe framing, speeches, on-screen text (for SEO), sounds, and transitions. DO NOT USE ARRAY.
+5. "ideiaEdicao": SINGLE STRING with at least 150 WORDS, including color palette (hex codes), fonts, filters, music (genre and BPM), sound effects, graphic elements.
+6. "tendencias": array of 3 short strings.
+7. All strings must be in English.
+
+Now generate the JSON for the topic "{req.tema}" strictly following the format and the specific instructions for {nome_plataforma}.
+"""
+    else:
+        prompt_principal = f"""Você é um criador de conteúdo viral brasileiro especializado em {nome_plataforma}.
 
 Tema do vídeo: "{req.tema}"
 
@@ -394,31 +447,51 @@ Agora gere o JSON para o tema "{req.tema}" seguindo rigorosamente o formato e as
     resposta_groq = chamar_groq(prompt_principal)
     conteudo = normalizar_chaves_json(limpar_e_extrair_json(resposta_groq))
 
-    # Garantir que todos os campos tenham valores mínimos
-    titulo = conteudo.get("titulo") or f"{req.tema.split()[0].capitalize()}: Ideia Principal"
-    descricao = conteudo.get("descricao") or f"Conteúdo sobre {req.tema}. Assista e compartilhe!"
-    hashtags = conteudo.get("hashtags", "")
-    if isinstance(hashtags, list):
-        hashtags = " ".join(f"#{h.strip().lstrip('#')}" for h in hashtags if h.strip())
-    if not hashtags:
-        palavras = req.tema.split()[:3]
-        hashtags = " ".join([f"#{p.capitalize()}" for p in palavras]) + " #conteudo #viral"
-
-    roteiro = conteudo.get("roteiro")
-    if isinstance(roteiro, list):
-        roteiro = "\n".join([f"[{c.get('nome', 'Cena')}] {c.get('fala', '')}" for c in roteiro])
-    if not roteiro:
-        roteiro = f"[ABERTURA] Apresentação do tema '{req.tema}'. [DESENVOLVIMENTO] Principais pontos. [ENCERRAMENTO] Chamada para ação."
-
-    ideia_edicao = conteudo.get("ideiaEdicao")
-    if isinstance(ideia_edicao, list):
-        ideia_edicao = "\n".join(ideia_edicao)
-    if not ideia_edicao or len(ideia_edicao.strip()) < 10:
-        ideia_edicao = "Paleta: #0A0A0A, #FFD700, #00E5FF. Fonte Montserrat. Música eletrônica 120 BPM. Cortes rápidos com glitch."
-
-    tendencias = conteudo.get("tendencias", [])
-    if not isinstance(tendencias, list) or not tendencias:
-        tendencias = [req.tema, f"Dicas de {req.tema}", f"Tendências em {req.tema}"]
+    # Garantir que todos os campos tenham valores mínimos (respeitando o idioma)
+    if idioma == "en":
+        titulo = conteudo.get("titulo") or f"{req.tema.split()[0].capitalize()}: Main Idea"
+        descricao = conteudo.get("descricao") or f"Content about {req.tema}. Watch and share!"
+        hashtags = conteudo.get("hashtags", "")
+        if isinstance(hashtags, list):
+            hashtags = " ".join(f"#{h.strip().lstrip('#')}" for h in hashtags if h.strip())
+        if not hashtags:
+            palavras = req.tema.split()[:3]
+            hashtags = " ".join([f"#{p.capitalize()}" for p in palavras]) + " #content #viral"
+        roteiro = conteudo.get("roteiro")
+        if isinstance(roteiro, list):
+            roteiro = "\n".join([f"[{c.get('nome', 'Cena')}] {c.get('fala', '')}" for c in roteiro])
+        if not roteiro:
+            roteiro = f"[OPENING] Presentation of the topic '{req.tema}'. [DEVELOPMENT] Main points. [CLOSING] Call to action."
+        ideia_edicao = conteudo.get("ideiaEdicao")
+        if isinstance(ideia_edicao, list):
+            ideia_edicao = "\n".join(ideia_edicao)
+        if not ideia_edicao or len(ideia_edicao.strip()) < 10:
+            ideia_edicao = "Palette: #0A0A0A, #FFD700, #00E5FF. Font: Montserrat. Music: Electronic 120 BPM. Quick cuts with glitch."
+        tendencias = conteudo.get("tendencias", [])
+        if not isinstance(tendencias, list) or not tendencias:
+            tendencias = [req.tema, f"Tips on {req.tema}", f"Trends in {req.tema}"]
+    else:
+        titulo = conteudo.get("titulo") or f"{req.tema.split()[0].capitalize()}: Ideia Principal"
+        descricao = conteudo.get("descricao") or f"Conteúdo sobre {req.tema}. Assista e compartilhe!"
+        hashtags = conteudo.get("hashtags", "")
+        if isinstance(hashtags, list):
+            hashtags = " ".join(f"#{h.strip().lstrip('#')}" for h in hashtags if h.strip())
+        if not hashtags:
+            palavras = req.tema.split()[:3]
+            hashtags = " ".join([f"#{p.capitalize()}" for p in palavras]) + " #conteudo #viral"
+        roteiro = conteudo.get("roteiro")
+        if isinstance(roteiro, list):
+            roteiro = "\n".join([f"[{c.get('nome', 'Cena')}] {c.get('fala', '')}" for c in roteiro])
+        if not roteiro:
+            roteiro = f"[ABERTURA] Apresentação do tema '{req.tema}'. [DESENVOLVIMENTO] Principais pontos. [ENCERRAMENTO] Chamada para ação."
+        ideia_edicao = conteudo.get("ideiaEdicao")
+        if isinstance(ideia_edicao, list):
+            ideia_edicao = "\n".join(ideia_edicao)
+        if not ideia_edicao or len(ideia_edicao.strip()) < 10:
+            ideia_edicao = "Paleta: #0A0A0A, #FFD700, #00E5FF. Fonte Montserrat. Música eletrônica 120 BPM. Cortes rápidos com glitch."
+        tendencias = conteudo.get("tendencias", [])
+        if not isinstance(tendencias, list) or not tendencias:
+            tendencias = [req.tema, f"Dicas de {req.tema}", f"Tendências em {req.tema}"]
 
     # Registro de uso
     if user_id:
@@ -437,7 +510,7 @@ Agora gere o JSON para o tema "{req.tema}" seguindo rigorosamente o formato e as
     }
 
 # ==========================================
-# ENDPOINT DE SEQUÊNCIA DE 10 IDEIAS
+# ENDPOINT DE SEQUÊNCIA DE 10 IDEIAS (COM IDIOMA)
 # ==========================================
 
 @app.post("/api/gerar-sequencia")
@@ -447,9 +520,29 @@ async def gerar_sequencia(req: RequisicaoSequencia, request: Request):
     user_id = get_current_user(request)
     if await get_plano_usuario(user_id) != "pro":
         raise HTTPException(402, detail="Recurso exclusivo para assinantes Pro.")
+
+    idioma = req.idioma if req.idioma in ("pt", "en") else "pt"
     nome_plataforma = {"tiktok": "TikTok", "instagram": "Instagram", "youtube": "YouTube"}[req.plataforma]
 
-    prompt = f"""Você é um estrategista de conteúdo especializado em {nome_plataforma}.
+    if idioma == "en":
+        prompt = f"""You are a content strategist specializing in {nome_plataforma}.
+A creator is producing a series of videos EXACTLY about this topic: "{req.tema}".
+He needs 10 title ideas and short descriptions for the next videos, ALL WITHIN THIS SAME TOPIC.
+
+Generate EXACTLY 10 ideas. Each idea must have:
+- "titulo": a short, catchy and SPECIFIC title about "{req.tema}" (max. 80 characters). DO NOT use generic titles like "How to give CONTINUATION".
+- "temaCurto": a short phrase (max. 100 characters) explaining the specific focus of that video within the topic "{req.tema}".
+
+IMPORTANT RULES:
+- ALL ideas must be EXACTLY about "{req.tema}". DO NOT stray to other subjects.
+- If the topic is "programming tips", talk about Python, JavaScript, career, tools, etc. NEVER talk about "content continuation" or "engagement strategies".
+- Vary the angles within the same subject: tutorials, lists, common mistakes, cases, tools, curiosities, etc.
+- Optimize for SEO on {nome_plataforma}.
+
+Reply ONLY with a pure JSON containing the key "ideias", which is an array of 10 objects with "titulo" and "temaCurto".
+"""
+    else:
+        prompt = f"""Você é um estrategista de conteúdo especializado em {nome_plataforma}.
 Um criador está fazendo uma série de vídeos EXATAMENTE sobre este tema: "{req.tema}".
 Ele precisa de 10 ideias de títulos e descrições curtas para os próximos vídeos, TODAS DENTRO DESTE MESMO TEMA.
 
@@ -464,22 +557,21 @@ REGRAS IMPORTANTES:
 - Otimize para SEO no {nome_plataforma}.
 
 Responda APENAS com um JSON puro contendo a chave "ideias", que é um array de 10 objetos com "titulo" e "temaCurto".
-
-Exemplo para o tema "dicas de programação":
-{{"ideias": [
-  {{"titulo": "Python: 5 Truques que Todo Iniciante Deveria Saber 🐍", "temaCurto": "Comandos e atalhos em Python que aceleram o aprendizado e a produtividade"}},
-  {{"titulo": "JavaScript Assíncrono SEM Mistérios (Async/Await)", "temaCurto": "Descomplicando Promises, async e await com exemplos práticos"}},
-  ...
-]}}
 """
 
     resposta = chamar_groq(prompt)
     dados = limpar_e_extrair_json(resposta)
     ideias = dados.get("ideias", [])
     if not isinstance(ideias, list) or len(ideias) == 0:
-        ideias = [{"titulo": f"{req.tema} - Parte {i+1}", "temaCurto": f"Aprofundando em {req.tema}"} for i in range(10)]
+        if idioma == "en":
+            ideias = [{"titulo": f"{req.tema} - Part {i+1}", "temaCurto": f"Deepening in {req.tema}"} for i in range(10)]
+        else:
+            ideias = [{"titulo": f"{req.tema} - Parte {i+1}", "temaCurto": f"Aprofundando em {req.tema}"} for i in range(10)]
     while len(ideias) < 10:
-        ideias.append({"titulo": f"{req.tema} - Extra {len(ideias)+1}", "temaCurto": f"Mais sobre {req.tema}"})
+        if idioma == "en":
+            ideias.append({"titulo": f"{req.tema} - Extra {len(ideias)+1}", "temaCurto": f"More about {req.tema}"})
+        else:
+            ideias.append({"titulo": f"{req.tema} - Extra {len(ideias)+1}", "temaCurto": f"Mais sobre {req.tema}"})
 
     await registrar_uso(user_id, "sequencia")
     return {"ideias": ideias[:10], "temaOriginal": req.tema, "plataforma": req.plataforma}
@@ -561,7 +653,6 @@ for caminho in possiveis_caminhos:
         break
 
 if frontend_path:
-    # Monta a pasta dist inteira para servir arquivos estáticos (manifest, icons, etc.)
     app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
 else:
     @app.get("/")
