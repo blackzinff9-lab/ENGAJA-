@@ -7,8 +7,10 @@ import ConsentPage from './ConsentPage';
 import { Platform } from './types';
 import { StatusBackend } from './api';
 import { Zap, Sparkles, CheckCircle2, Menu, X } from 'lucide-react';
+import { useLanguage } from './LanguageContext';
 
 function App() {
+  const { lang, setLang, t } = useLanguage();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [carregando, setCarregando] = useState(false);
@@ -161,7 +163,7 @@ function App() {
 
   if (!consentiu) {
     return <ConsentPage onConsent={handleConsent} />;
-  }
+}
     return (
     <div className="min-h-screen bg-gray-950 text-white font-sans selection:bg-indigo-500/30">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -188,6 +190,15 @@ function App() {
               <span className="text-sm text-gray-400">{usuario.nome}</span>
             </div>
 
+            {/* Seletor de idioma */}
+            <button
+              onClick={() => setLang(lang === 'pt' ? 'en' : 'pt')}
+              className="text-xs px-2 py-1 rounded-lg bg-white/5 text-white/60 hover:text-white transition"
+              title={lang === 'pt' ? 'Switch to English' : 'Mudar para Português'}
+            >
+              {lang === 'pt' ? '🇧🇷 PT' : '🇺🇸 EN'}
+            </button>
+
             {/* Menu de três barras */}
             <div className="relative">
               <button
@@ -208,21 +219,21 @@ function App() {
                     className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition"
                     onClick={() => setMenuDropdownAberto(false)}
                   >
-                    Suporte
+                    {t('menu_support')}
                   </a>
                   <a
                     href="/termos"
                     className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition"
                     onClick={() => setMenuDropdownAberto(false)}
                   >
-                    Termos de Serviço
+                    {t('menu_terms')}
                   </a>
                   <a
                     href="/privacidade"
                     className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition"
                     onClick={() => setMenuDropdownAberto(false)}
                   >
-                    Política de Privacidade
+                    {t('menu_privacy')}
                   </a>
                 </div>
               )}
@@ -232,7 +243,7 @@ function App() {
               onClick={handleLogout}
               className="text-sm text-gray-400 hover:text-white transition-colors"
             >
-              Sair
+              {t('nav_logout')}
             </button>
           </div>
 
@@ -247,29 +258,29 @@ function App() {
           <section className="text-center mb-16">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold mb-8 tracking-wide uppercase">
               <Sparkles className="w-4 h-4" />
-              <span>A Revolução da Criação de Conteúdo</span>
+              <span>{t('hero_badge')}</span>
             </div>
             <h1 className="text-6xl md:text-8xl font-black mb-6 tracking-tighter leading-[0.9]">
-              CRIE VÍDEOS <br />
+              {t('hero_title')} <br />
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">
-                EXPLOSIVOS
+                {t('hero_highlight')}
               </span>
             </h1>
             <p className="text-gray-400 text-xl md:text-2xl max-w-3xl mx-auto mb-8">
-              Com inteligência artificial que analisa as tendências de última hora para gerar roteiros que retêm a atenção e dominam o "For You".
+              {t('hero_subtitle')}
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800/40 border border-gray-700/50">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span className="text-sm text-gray-300">Roteiros Otimizados</span>
+                <span className="text-sm text-gray-300">{t('hero_feature1')}</span>
               </div>
               <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800/40 border border-gray-700/50">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span className="text-sm text-gray-300">Hooks Virais</span>
+                <span className="text-sm text-gray-300">{t('hero_feature2')}</span>
               </div>
               <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800/40 border border-gray-700/50">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span className="text-sm text-gray-300">Análise de Dados</span>
+                <span className="text-sm text-gray-300">{t('hero_feature3')}</span>
               </div>
             </div>
           </section>
