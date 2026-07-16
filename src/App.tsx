@@ -110,7 +110,7 @@ function App() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ tema, plataforma }),
+        body: JSON.stringify({ tema, plataforma, idioma: lang }),
       });
       if (!resposta.ok) {
         const erro = await resposta.json();
@@ -163,7 +163,7 @@ function App() {
 
   if (!consentiu) {
     return <ConsentPage onConsent={handleConsent} />;
-}
+  }
     return (
     <div className="min-h-screen bg-gray-950 text-white font-sans selection:bg-indigo-500/30">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -182,15 +182,15 @@ function App() {
             </span>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-2">
+          {/* Itens desktop (avatar, seletor de idioma, dropdown 3 pontos, logout) */}
+          <div className="hidden md:flex items-center gap-4">
+            <div className="flex items-center gap-2">
               {usuario.avatar && (
                 <img src={usuario.avatar} alt={usuario.nome} className="w-8 h-8 rounded-full" />
               )}
               <span className="text-sm text-gray-400">{usuario.nome}</span>
             </div>
 
-            {/* Seletor de idioma */}
             <button
               onClick={() => setLang(lang === 'pt' ? 'en' : 'pt')}
               className="text-xs px-2 py-1 rounded-lg bg-white/5 text-white/60 hover:text-white transition"
@@ -199,16 +199,16 @@ function App() {
               {lang === 'pt' ? '🇧🇷 PT' : '🇺🇸 EN'}
             </button>
 
-            {/* Menu de três barras */}
+            {/* Dropdown 3 pontos (apenas desktop) */}
             <div className="relative">
               <button
                 onClick={() => setMenuDropdownAberto(!menuDropdownAberto)}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 text-white/60 hover:text-white transition"
+                className="flex items-center gap-1 px-3 py-2 rounded-xl bg-white/5 text-white/60 hover:text-white transition"
               >
                 <div className="flex flex-col gap-1">
-                  <span className="w-4 h-0.5 bg-white/60 rounded-full"></span>
-                  <span className="w-4 h-0.5 bg-white/60 rounded-full"></span>
-                  <span className="w-4 h-0.5 bg-white/60 rounded-full"></span>
+                  <span className="w-1.5 h-1.5 bg-white/60 rounded-full"></span>
+                  <span className="w-1.5 h-1.5 bg-white/60 rounded-full"></span>
+                  <span className="w-1.5 h-1.5 bg-white/60 rounded-full"></span>
                 </div>
               </button>
 
@@ -247,10 +247,58 @@ function App() {
             </button>
           </div>
 
+          {/* Botão hamburger mobile (visível apenas em telas pequenas) */}
           <button className="md:hidden text-white" onClick={() => setIsMenuOpen(!isMenuOpen)}>
             {isMenuOpen ? <X /> : <Menu />}
           </button>
         </div>
+
+        {/* Menu mobile (aparece ao clicar no hamburger) */}
+        {isMenuOpen && (
+          <div className="md:hidden absolute top-full left-0 w-full bg-gray-900 border-t border-gray-800 py-4 px-6 flex flex-col gap-4 animate-fade-in">
+            <div className="flex items-center gap-3 mb-2">
+              {usuario.avatar && (
+                <img src={usuario.avatar} alt={usuario.nome} className="w-8 h-8 rounded-full" />
+              )}
+              <span className="text-sm text-gray-400">{usuario.nome}</span>
+            </div>
+            <a
+              href="mailto:engajaibrasil00@gmail.com"
+              className="text-sm text-gray-300 hover:text-white transition"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              {t('menu_support')}
+            </a>
+            <a
+              href="/termos"
+              className="text-sm text-gray-300 hover:text-white transition"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              {t('menu_terms')}
+            </a>
+            <a
+              href="/privacidade"
+              className="text-sm text-gray-300 hover:text-white transition"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              {t('menu_privacy')}
+            </a>
+            <div className="border-t border-gray-700 pt-3 flex items-center justify-between">
+              <button
+                onClick={() => { handleLogout(); setIsMenuOpen(false); }}
+                className="text-sm text-gray-400 hover:text-white transition"
+              >
+                {t('nav_logout')}
+              </button>
+              <button
+                onClick={() => setLang(lang === 'pt' ? 'en' : 'pt')}
+                className="text-xs px-2 py-1 rounded-lg bg-white/5 text-white/60 hover:text-white transition"
+              >
+                {lang === 'pt' ? '🇧🇷 PT' : '🇺🇸 EN'}
+              </button>
+            </div>
+          </div>
+        )}
       </nav>
 
       <main className="relative z-10 pt-32 pb-20">
