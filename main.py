@@ -1,9 +1,9 @@
 """
-ENGAJAÍ — Backend FastAPI (Versão Otimizada)
+ENGAJAÍ — Backend FastAPI (Versão Estável Groq)
 Deploy no Render
 
 Variáveis de ambiente necessárias:
-- DEEPSEEK_API_KEY (obrigatória)
+- GROQ_API_KEY (obrigatória)
 - YOUTUBE_API_KEY, TRENDSMCP_API_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 - JWT_SECRET, MP_ACCESS_TOKEN, SUPABASE_URL, SUPABASE_KEY (service_role)
 """
@@ -25,14 +25,14 @@ app = FastAPI(title="ENGAJAÍ API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 # ========== CONFIGURAÇÕES ==========
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 TRENDSMCP_API_KEY = os.getenv("TRENDSMCP_API_KEY", "")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 JWT_SECRET = os.getenv("JWT_SECRET", "contentforge-secret-change-me")
-DEEPSEEK_MODEL = "deepseek-chat"
-DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
+GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
@@ -178,24 +178,25 @@ def normalizar_chaves(dados: dict) -> dict:
         corrigido[chave] = v
     return corrigido
 
-def chamar_deepseek(prompt: str, max_tokens: int = 500) -> str:
-    if not DEEPSEEK_API_KEY:
-        raise HTTPException(500, detail="DEEPSEEK_API_KEY não configurada")
-    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {DEEPSEEK_API_KEY}"}
+def chamar_groq(prompt: str, max_tokens: int = 500) -> str:
+    if not GROQ_API_KEY:
+        raise HTTPException(500, detail="GROQ_API_KEY não configurada")
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {GROQ_API_KEY}"}
     request_body = {
-        "model": DEEPSEEK_MODEL,
+        "model": GROQ_MODEL,
         "messages": [
-            {"role": "system", "content": "You are a multilingual content creator. Reply ONLY with a valid JSON object."},
+            {"role": "system", "content": "You are a helpful assistant. Reply ONLY with a valid JSON object."},
             {"role": "user", "content": prompt}
         ],
-        "temperature": 0.8, "max_tokens": max_tokens,
-        "response_format": {"type": "json_object"}
+        "temperature": 0.8,
+        "max_tokens": max_tokens
     }
-    resp = requests.post(DEEPSEEK_URL, headers=headers, json=request_body, timeout=60)
+    resp = requests.post(GROQ_URL, headers=headers, json=request_body, timeout=90)
     if resp.status_code == 429:
-        raise HTTPException(429, detail="Limite de requisições DeepSeek atingido.")
+        raise HTTPException(429, detail="Limite de requisições Groq atingido.")
     if not resp.ok:
-        raise HTTPException(502, detail=f"Erro DeepSeek: {resp.text}")
+        print(f"[Groq] Erro {resp.status_code}: {resp.text}", flush=True)
+        raise HTTPException(502, detail=f"Erro Groq: {resp.text}")
     dados = resp.json()
     return dados["choices"][0]["message"]["content"]
 
@@ -210,6 +211,32 @@ def pesquisar_youtube(tema: str) -> str:
         return "\n".join(linhas)
     except Exception as e:
         print(f"[YouTube] Erro: {e}")
+        return ""
+
+def pesquisar_trendsmcp(tema: str, plataforma: str) -> str:
+    if not TRENDSMCP_API_KEY: return ""
+    try:
+        fonte = "tiktok" if plataforma == "tiktok" else "google trends"
+        resp = requests.post(
+            "https://api.trendsmcp.ai/api",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {TRENDSMCP_API_KEY}"
+            },
+            json={"source": fonte, "keyword": tema},
+            timeout=10
+        )
+        if not resp.ok: return ""
+        dados = resp.json()
+        corpo = dados.get("body", [])
+        if isinstance(corpo, str):
+            corpo = json.loads(corpo)
+        if not isinstance(corpo, list) or len(corpo) < 3: return ""
+        ultimos = corpo[-5:]
+        linhas = [f"- {p.get('date', 'N/A')}: popularidade {p.get('value', 'N/A')}/100" for p in ultimos]
+        return f"Tendências ({fonte}):\n" + "\n".join(linhas)
+    except Exception as e:
+        print(f"[Trends MCP] Erro: {e}")
         return ""
 
 # ========== CONTROLE DE LIMITES ==========
@@ -258,7 +285,7 @@ async def verificar_assinatura(user_id: str):
         print(f"[Verificação Assinatura] Erro: {e}")
         return {"status": "error"}
         # ==========================================
-# ENDPOINT PRINCIPAL DE GERAÇÃO (OTIMIZADO)
+# ENDPOINT PRINCIPAL DE GERAÇÃO
 # ==========================================
 
 @app.post("/api/gerar")
@@ -283,14 +310,36 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
 
     nome_plataforma = {"tiktok": "TikTok", "instagram": "Instagram", "youtube": "YouTube"}[req.plataforma]
 
-    # Tendências (opcional, mais leve)
-    tendencias = pesquisar_youtube(req.tema) if req.plataforma == "youtube" else ""
+    # Buscar tendências de múltiplas fontes
+    dados_tendencias = ""
 
-    # ========== PASSO 1: Título, descrição e hashtags (até 500 tokens) ==========
-    prompt_curto = f"""Crie conteúdo para um vídeo de {nome_plataforma} sobre: "{req.tema}"
-{f'Tendências: {tendencias}' if tendencias else ''}
-Gere um JSON com: "titulo" (máx 100 chars), "descricao" (máx 300 chars), "hashtags" (ex: "#tag1 #tag2"). Responda em {idioma}."""
-    resposta_curta = chamar_deepseek(prompt_curto, max_tokens=500)
+    # Trends MCP para TODAS as plataformas
+    dados_mcp = pesquisar_trendsmcp(req.tema, req.plataforma)
+    if dados_mcp:
+        dados_tendencias += f"[Trends MCP]\n{dados_mcp}\n\n"
+
+    # YouTube API adicional para YouTube
+    if req.plataforma == "youtube":
+        dados_yt = pesquisar_youtube(req.tema)
+        if dados_yt:
+            dados_tendencias += f"[YouTube]\n{dados_yt}\n"
+
+    if not dados_tendencias:
+        dados_tendencias = "Nenhum dado externo disponível."
+
+    # ========== PASSO 1: Título, descrição e hashtags ==========
+    prompt_curto = f"""Crie conteúdo para {nome_plataforma} sobre: "{req.tema}"
+
+Dados de tendências reais (use como inspiração):
+{dados_tendencias}
+
+Gere APENAS um JSON com:
+- "titulo": título chamativo (máx 100 caracteres)
+- "descricao": descrição envolvente (máx 300 caracteres)
+- "hashtags": string única (ex: "#tag1 #tag2 #tag3")
+
+Responda em {idioma}. APENAS o JSON, sem markdown."""
+    resposta_curta = chamar_groq(prompt_curto, max_tokens=500)
     dados_curtos = normalizar_chaves(limpar_json(resposta_curta))
     titulo = dados_curtos.get("titulo") or f"{req.tema.split()[0].capitalize()}: Ideia Principal"
     descricao = dados_curtos.get("descricao") or f"Conteúdo sobre {req.tema}."
@@ -300,11 +349,23 @@ Gere um JSON com: "titulo" (máx 100 chars), "descricao" (máx 300 chars), "hash
     if not hashtags:
         hashtags = f"#{req.tema.replace(' ', '')} #conteudo #viral"
 
-    # ========== PASSO 2: Roteiro + Ideia de Edição (até 1500 tokens) ==========
-    prompt_longo = f"""Crie o roteiro e a ideia de edição para um vídeo de {nome_plataforma} sobre: "{req.tema}"
-Título: "{titulo}" | Descrição: "{descricao}" | Hashtags: "{hashtags}"
-Responda com JSON: "roteiro" (cenas com [CENA X – TEMPO], enquadramento, falas), "ideiaEdicao" (cores, fontes, música, efeitos), "tendencias" (array 3 strings). Responda em {idioma}."""
-    resposta_longa = chamar_deepseek(prompt_longo, max_tokens=1500)
+    # ========== PASSO 2: Roteiro + Ideia de Edição ==========
+    prompt_longo = f"""Crie roteiro e ideia de edição para {nome_plataforma}: "{req.tema}"
+
+Título: "{titulo}"
+Descrição: "{descricao}"
+Hashtags: "{hashtags}"
+
+Dados de tendências:
+{dados_tendencias}
+
+Gere APENAS um JSON com:
+- "roteiro": string única com cenas [CENA X – TEMPO], enquadramento, falas, sons
+- "ideiaEdicao": string descritiva (cores hex, fontes, música, efeitos)
+- "tendencias": array com 3 strings curtas
+
+Responda em {idioma}. APENAS o JSON, sem markdown."""
+    resposta_longa = chamar_groq(prompt_longo, max_tokens=1500)
     dados_longos = normalizar_chaves(limpar_json(resposta_longa))
     roteiro = dados_longos.get("roteiro", f"[ABERTURA] {req.tema}. [DESENVOLVIMENTO] Principais pontos. [ENCERRAMENTO] Call to action.")
     ideia_edicao = dados_longos.get("ideiaEdicao", "Paleta: #0A0A0A, #FFD700, #00E5FF. Fonte Montserrat. Música eletrônica 120 BPM.")
@@ -324,7 +385,7 @@ Responda com JSON: "roteiro" (cenas com [CENA X – TEMPO], enquadramento, falas
         "tendencias": tendencias_lista,
         "plataforma": req.plataforma,
         "tema": req.tema,
-        "fonteTendencias": "youtube" if tendencias else "ia",
+        "fonteTendencias": "trendsmcp+youtube" if req.plataforma == "youtube" else "trendsmcp",
     }
 
 # ==========================================
@@ -341,13 +402,13 @@ async def gerar_sequencia(req: RequisicaoSequencia, request: Request):
 
     idioma = req.idioma if req.idioma in ("pt", "en") else "pt"
     nome_plataforma = {"tiktok": "TikTok", "instagram": "Instagram", "youtube": "YouTube"}[req.plataforma]
-    prompt = f"""Gere 10 ideias de títulos e descrições curtas para uma série de vídeos de {nome_plataforma} sobre: "{req.tema}"
-Responda com JSON: "ideias" (array com "titulo" e "temaCurto"). Responda em {idioma}."""
-    resposta = chamar_deepseek(prompt, max_tokens=1000)
+    prompt = f"""Gere 10 ideias de títulos e descrições curtas para série de {nome_plataforma}: "{req.tema}"
+Responda JSON: "ideias" (array com "titulo" e "temaCurto"). Em {idioma}."""
+    resposta = chamar_groq(prompt, max_tokens=1000)
     dados = limpar_json(resposta)
     ideias = dados.get("ideias", [])
     if not isinstance(ideias, list) or len(ideias) == 0:
-        ideias = [{"titulo": f"{req.tema} - Parte {i+1}", "temaCurto": f"Continuação"} for i in range(10)]
+        ideias = [{"titulo": f"{req.tema} - Parte {i+1}", "temaCurto": "Continuação"} for i in range(10)]
     while len(ideias) < 10:
         ideias.append({"titulo": f"{req.tema} - Extra", "temaCurto": "Mais sobre o tema"})
 
@@ -397,8 +458,9 @@ async def notificacao_pagamento(request: Request):
 async def status():
     return {
         "status": "online",
-        "deepseek_configurado": bool(DEEPSEEK_API_KEY),
+        "groq_configurado": bool(GROQ_API_KEY),
         "youtube_configurado": bool(YOUTUBE_API_KEY),
+        "trendsmcp_configurado": bool(TRENDSMCP_API_KEY),
         "google_login_configurado": bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET),
     }
 
