@@ -3,8 +3,8 @@ ENGAJAÍ — Backend FastAPI
 Deploy no Render
 
 Variáveis de ambiente necessárias:
-- DEEPSEEK_API_KEY (obrigatória — textos curtos)
-- GROQ_API_KEY (obrigatória — roteiros longos)
+- DEEPSEEK_API_KEY_1, DEEPSEEK_API_KEY_2, ... (textos curtos)
+- GROQ_API_KEY_1, GROQ_API_KEY_2, ... (roteiros longos)
 - YOUTUBE_API_KEY, TRENDSMCP_API_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 - JWT_SECRET, MP_ACCESS_TOKEN, SUPABASE_URL, SUPABASE_KEY (service_role)
 """
@@ -25,21 +25,33 @@ load_dotenv()
 app = FastAPI(title="ENGAJAÍ API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-# ========== CONFIGURAÇÕES ==========
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+# ========== CARREGAR MÚLTIPLAS CHAVES ==========
+def carregar_chaves(prefixo: str):
+    """Retorna uma lista de chaves API presentes nas variáveis de ambiente."""
+    chaves = []
+    for i in range(1, 11):  # suporta até 10 chaves
+        key = os.getenv(f"{prefixo}_{i}", "")
+        if key:
+            chaves.append(key)
+    return chaves
+
+DEEPSEEK_API_KEYS = carregar_chaves("DEEPSEEK_API_KEY")
+GROQ_API_KEYS = carregar_chaves("GROQ_API_KEY")
+
+if not DEEPSEEK_API_KEYS:
+    raise Exception("Nenhuma chave DeepSeek configurada. Defina DEEPSEEK_API_KEY_1.")
+if not GROQ_API_KEYS:
+    raise Exception("Nenhuma chave Groq configurada. Defina GROQ_API_KEY_1.")
+
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 TRENDSMCP_API_KEY = os.getenv("TRENDSMCP_API_KEY", "")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 JWT_SECRET = os.getenv("JWT_SECRET", "contentforge-secret-change-me")
-
-# Modelos
 DEEPSEEK_MODEL = "deepseek-chat"
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 GROQ_MODEL = "llama-3.3-70b-versatile"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-
 MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
@@ -102,11 +114,7 @@ async def google_callback(request: Request, code: str = Query(...)):
         nome = user.get("name", "Usuário")
         email = user.get("email", "")
         avatar = user.get("picture", f"https://ui-avatars.com/api/?name={urllib.parse.quote(nome)}&background=6366f1&color=fff&size=128&bold=true")
-
-        # Definir plano inicial: Pro vitalício para os e-mails de teste
         plano_inicial = "pro" if email in ["gustavofirmino0511@gmail.com", "blackzinff9@gmail.com"] else "free"
-
-        # Buscar ou criar usuário no Supabase
         user_id = ""
         try:
             res = supabase.table("users").select("id").eq("email", email).execute()
@@ -115,49 +123,27 @@ async def google_callback(request: Request, code: str = Query(...)):
                 supabase.table("users").update({"name": nome, "plan": plano_inicial}).eq("id", user_id).execute()
             else:
                 user_id = str(uuid.uuid4())
-                supabase.table("users").insert({
-                    "id": user_id,
-                    "email": email,
-                    "name": nome,
-                    "plan": plano_inicial
-                }).execute()
+                supabase.table("users").insert({"id": user_id, "email": email, "name": nome, "plan": plano_inicial}).execute()
         except Exception as e:
             print(f"[Supabase] Erro ao buscar/criar usuário: {e}", flush=True)
             return RedirectResponse("/?erro=erro_interno")
-
-        payload = {
-            "sub": user_id,
-            "nome": nome,
-            "email": email,
-            "avatar": avatar,
-            "exp": datetime.now(timezone.utc) + timedelta(days=7),
-            "iat": datetime.now(timezone.utc),
-        }
+        payload = {"sub": user_id, "nome": nome, "email": email, "avatar": avatar,
+                   "exp": datetime.now(timezone.utc) + timedelta(days=7), "iat": datetime.now(timezone.utc)}
         token_jwt = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
         params = urllib.parse.urlencode({"token": token_jwt, "nome": nome, "email": email, "avatar": avatar})
         return RedirectResponse(f"/?{params}")
     except Exception as e:
         print(f"[Google OAuth] Exceção: {e}")
         return RedirectResponse("/?erro=erro_interno")
-
-@app.get("/api/auth/verificar")
+        @app.get("/api/auth/verificar")
 async def verificar_token(token: str = Query(...)):
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         user_id = payload.get("sub", "")
         email = payload.get("email", "")
-
-        # Pro vitalício para os e-mails de teste
-        if email == "gustavofirmino0511@gmail.com" or email == "blackzinff9@gmail.com":
-            return {
-                "valido": True,
-                "nome": payload.get("nome", ""),
-                "email": email,
-                "avatar": payload.get("avatar", ""),
-                "sub": user_id,
-                "plano": "pro",
-            }
-
+        if email in ["gustavofirmino0511@gmail.com", "blackzinff9@gmail.com"]:
+            return {"valido": True, "nome": payload.get("nome", ""), "email": email,
+                    "avatar": payload.get("avatar", ""), "sub": user_id, "plano": "pro"}
         plano = "free"
         if user_id:
             try:
@@ -169,15 +155,8 @@ async def verificar_token(token: str = Query(...)):
                         if verificacao.get("status") == "free":
                             plano = "free"
             except: pass
-
-        return {
-            "valido": True,
-            "nome": payload.get("nome", ""),
-            "email": email,
-            "avatar": payload.get("avatar", ""),
-            "sub": user_id,
-            "plano": plano,
-        }
+        return {"valido": True, "nome": payload.get("nome", ""), "email": email,
+                "avatar": payload.get("avatar", ""), "sub": user_id, "plano": plano}
     except jwt.ExpiredSignatureError:
         raise HTTPException(401, detail="Token expirado")
     except jwt.InvalidTokenError:
@@ -217,56 +196,126 @@ def normalizar_chaves_json(dados: dict) -> dict:
         corrigido[chave] = v
     return corrigido
 
-def chamar_deepseek(prompt: str, max_tokens: int = 500) -> str:
-    """API DeepSeek — textos curtos (título, descrição, hashtags)."""
-    if not DEEPSEEK_API_KEY:
-        raise HTTPException(500, detail="DEEPSEEK_API_KEY não configurada")
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}"
-    }
-    request_body = {
-        "model": DEEPSEEK_MODEL,
-        "messages": [
-            {"role": "system", "content": "You are a multilingual content creation specialist. Reply ONLY with a valid JSON object in the same language as the user's prompt."},
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.8,
-        "max_tokens": max_tokens,
-        "response_format": {"type": "json_object"}
-    }
-    resp = requests.post(DEEPSEEK_URL, headers=headers, json=request_body, timeout=60)
-    if resp.status_code == 429:
-        raise HTTPException(429, detail="Limite de requisições da DeepSeek atingido.")
-    if not resp.ok:
-        raise HTTPException(502, detail=f"Erro na API DeepSeek: {resp.text}")
-    dados = resp.json()
-    return dados["choices"][0]["message"]["content"]
+def chamar_deepseek_com_chave(prompt: str, indice_chave: int, max_tokens: int = 500) -> str:
+    """
+    Chama a API DeepSeek usando a chave do índice especificado.
+    Se falhar (429), tenta a outra chave DeepSeek disponível.
+    """
+    # Tenta a chave preferencial primeiro
+    if indice_chave < len(DEEPSEEK_API_KEYS):
+        try:
+            api_key = DEEPSEEK_API_KEYS[indice_chave]
+            headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+            request_body = {
+                "model": DEEPSEEK_MODEL,
+                "messages": [
+                    {"role": "system", "content": "You are a multilingual content creation specialist. Reply ONLY with a valid JSON object."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.8, "max_tokens": max_tokens,
+                "response_format": {"type": "json_object"}
+            }
+            resp = requests.post(DEEPSEEK_URL, headers=headers, json=request_body, timeout=60)
+            if resp.status_code == 429:
+                print(f"[DeepSeek] Chave {indice_chave+1} esgotada.", flush=True)
+            else:
+                if not resp.ok:
+                    raise HTTPException(502, detail=f"Erro DeepSeek: {resp.text}")
+                dados = resp.json()
+                return dados["choices"][0]["message"]["content"]
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"[DeepSeek] Erro chave {indice_chave+1}: {e}", flush=True)
 
-def chamar_groq(prompt: str) -> str:
-    """API Groq — roteiros longos e ideias de edição."""
-    if not GROQ_API_KEY:
-        raise HTTPException(500, detail="GROQ_API_KEY não configurada")
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {GROQ_API_KEY}"
-    }
-    request_body = {
-        "model": GROQ_MODEL,
-        "messages": [
-            {"role": "system", "content": "You are a multilingual content creation specialist. Reply ONLY with a valid JSON object in the same language as the user's prompt."},
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.8,
-        "max_tokens": 4000,
-    }
-    resp = requests.post(GROQ_URL, headers=headers, json=request_body, timeout=90)
-    if resp.status_code == 429:
-        raise HTTPException(429, detail="Limite de requisições do Groq atingido.")
-    if not resp.ok:
-        raise HTTPException(502, detail=f"Erro na API Groq: {resp.text}")
-    dados = resp.json()
-    return dados["choices"][0]["message"]["content"]
+    # Fallback: tenta qualquer outra chave DeepSeek disponível
+    for idx, api_key in enumerate(DEEPSEEK_API_KEYS):
+        if idx == indice_chave:
+            continue
+        try:
+            headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+            request_body = {
+                "model": DEEPSEEK_MODEL,
+                "messages": [
+                    {"role": "system", "content": "You are a multilingual content creation specialist. Reply ONLY with a valid JSON object."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.8, "max_tokens": max_tokens,
+                "response_format": {"type": "json_object"}
+            }
+            resp = requests.post(DEEPSEEK_URL, headers=headers, json=request_body, timeout=60)
+            if resp.status_code == 429:
+                print(f"[DeepSeek] Chave fallback {idx+1} também esgotada.", flush=True)
+                continue
+            if not resp.ok:
+                raise HTTPException(502, detail=f"Erro DeepSeek: {resp.text}")
+            dados = resp.json()
+            return dados["choices"][0]["message"]["content"]
+        except Exception as e:
+            print(f"[DeepSeek] Erro chave fallback {idx+1}: {e}", flush=True)
+            continue
+
+    raise HTTPException(429, detail="Todas as chaves DeepSeek atingiram o limite.")
+
+
+def chamar_groq_com_chave(prompt: str, indice_chave: int) -> str:
+    """
+    Chama a API Groq usando a chave do índice especificado.
+    Se falhar (429), tenta a outra chave Groq disponível.
+    """
+    # Tenta a chave preferencial primeiro
+    if indice_chave < len(GROQ_API_KEYS):
+        try:
+            api_key = GROQ_API_KEYS[indice_chave]
+            headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+            request_body = {
+                "model": GROQ_MODEL,
+                "messages": [
+                    {"role": "system", "content": "You are a multilingual content creation specialist. Reply ONLY with a valid JSON object."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.8, "max_tokens": 4000,
+            }
+            resp = requests.post(GROQ_URL, headers=headers, json=request_body, timeout=90)
+            if resp.status_code == 429:
+                print(f"[Groq] Chave {indice_chave+1} esgotada.", flush=True)
+            else:
+                if not resp.ok:
+                    raise HTTPException(502, detail=f"Erro Groq: {resp.text}")
+                dados = resp.json()
+                return dados["choices"][0]["message"]["content"]
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"[Groq] Erro chave {indice_chave+1}: {e}", flush=True)
+
+    # Fallback: tenta qualquer outra chave Groq disponível
+    for idx, api_key in enumerate(GROQ_API_KEYS):
+        if idx == indice_chave:
+            continue
+        try:
+            headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+            request_body = {
+                "model": GROQ_MODEL,
+                "messages": [
+                    {"role": "system", "content": "You are a multilingual content creation specialist. Reply ONLY with a valid JSON object."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.8, "max_tokens": 4000,
+            }
+            resp = requests.post(GROQ_URL, headers=headers, json=request_body, timeout=90)
+            if resp.status_code == 429:
+                print(f"[Groq] Chave fallback {idx+1} também esgotada.", flush=True)
+                continue
+            if not resp.ok:
+                raise HTTPException(502, detail=f"Erro Groq: {resp.text}")
+            dados = resp.json()
+            return dados["choices"][0]["message"]["content"]
+        except Exception as e:
+            print(f"[Groq] Erro chave fallback {idx+1}: {e}", flush=True)
+            continue
+
+    raise HTTPException(429, detail="Todas as chaves Groq atingiram o limite.")
 
 def pesquisar_tendencias_youtube(tema: str) -> str:
     if not YOUTUBE_API_KEY: return ""
@@ -302,7 +351,7 @@ def pesquisar_tendencias_mcp(tema: str, plataforma: str) -> str:
 
 def fallback_pesquisa(tema: str, plataforma: str) -> str:
     prompt = f"Com base no seu conhecimento, aja como um especialista em tendências do {plataforma}. Liste 3 tópicos em alta sobre '{tema}', hashtags relevantes e estilo de conteúdo."
-    return chamar_deepseek(prompt, max_tokens=300)
+    return chamar_deepseek_com_chave(prompt, indice_chave=0, max_tokens=300)
 
 # ========== CONTROLE DE LIMITES ==========
 async def get_plano_usuario(user_id: str) -> str:
@@ -356,7 +405,7 @@ async def verificar_status_assinatura(user_id: str):
         print(f"[Verificação Assinatura] Erro: {e}")
         return {"status": "error", "mensagem": str(e)}
         # ==========================================
-# ENDPOINT PRINCIPAL DE GERAÇÃO (DUAS APIs)
+# ENDPOINT PRINCIPAL DE GERAÇÃO (DIVISÃO DE TAREFAS)
 # ==========================================
 
 @app.post("/api/gerar")
@@ -411,34 +460,46 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
         else:
             instrucoes = """Instagram: Título criativo com palavra-chave nos primeiros 3 segundos. Descrição com gancho forte e SEO. 3-5 hashtags relevantes. Roteiro para Reels visualmente atraente que incentive salvar e compartilhar."""
 
-    # ==================== PASSO 1: API DeepSeek (textos curtos) ====================
-    prompt_textos_curtos = f"""{instrucoes}
+    # ========== PASSO 1: Título + Hashtags (DeepSeek 1) ==========
+    prompt_titulo_hashtags = f"""{instrucoes}
 
 Tema do vídeo: "{req.tema}"
 
-Dados de tendências (use como inspiração):
+Dados de tendências:
 {f"DADOS:\n{dados_tendencias}\n" if dados_tendencias else "Sem dados externos."}
 
 Gere APENAS um JSON com estas chaves:
 - "titulo": título chamativo e otimizado para {nome_plataforma} (máx. 100 caracteres).
-- "descricao": descrição envolvente com call-to-action e palavras-chave (máx. 400 caracteres).
 - "hashtags": string única com hashtags separadas por espaço (ex.: "#tag1 #tag2 #tag3").
 
 Responda SOMENTE com o JSON puro, sem markdown."""
-    resposta_curta = chamar_deepseek(prompt_textos_curtos, max_tokens=500)
-    dados_curtos = normalizar_chaves_json(limpar_e_extrair_json(resposta_curta))
-    titulo = dados_curtos.get("titulo") or f"{req.tema.split()[0].capitalize()}: Ideia Principal"
-    descricao = dados_curtos.get("descricao") or f"Conteúdo sobre {req.tema}. Assista e compartilhe!"
-    hashtags = dados_curtos.get("hashtags", "")
+    resposta_titulo = chamar_deepseek_com_chave(prompt_titulo_hashtags, indice_chave=0, max_tokens=300)
+    dados_titulo = normalizar_chaves_json(limpar_e_extrair_json(resposta_titulo))
+    titulo = dados_titulo.get("titulo") or f"{req.tema.split()[0].capitalize()}: Ideia Principal"
+    hashtags = dados_titulo.get("hashtags", "")
     if isinstance(hashtags, list):
         hashtags = " ".join(f"#{h.strip().lstrip('#')}" for h in hashtags if h.strip())
     if not hashtags:
         palavras = req.tema.split()[:3]
         hashtags = " ".join([f"#{p.capitalize()}" for p in palavras]) + " #conteudo #viral"
 
-    # ==================== PASSO 2: API Groq (roteiro + ideia de edição) ====================
+    # ========== PASSO 2: Descrição (DeepSeek 2) ==========
+    prompt_descricao = f"""{instrucoes}
+
+Tema: "{req.tema}"
+Título: "{titulo}"
+
+Gere APENAS um JSON com a chave:
+- "descricao": descrição envolvente com call-to-action e palavras-chave (máx. 400 caracteres).
+
+Responda SOMENTE com o JSON puro, sem markdown."""
+    resposta_desc = chamar_deepseek_com_chave(prompt_descricao, indice_chave=1, max_tokens=400)
+    dados_desc = normalizar_chaves_json(limpar_e_extrair_json(resposta_desc))
+    descricao = dados_desc.get("descricao") or f"Conteúdo sobre {req.tema}. Assista e compartilhe!"
+
+    # ========== PASSO 3: Roteiro (Groq 1) ==========
     prompt_roteiro = f"""Você é um criador de conteúdo viral especializado em {nome_plataforma}.
-Crie o roteiro COMPLETO e a ideia de edição para o vídeo com base nas informações abaixo.
+Crie o roteiro COMPLETO para o vídeo com base nas informações abaixo.
 
 Tema: "{req.tema}"
 Título: "{titulo}"
@@ -448,28 +509,43 @@ Hashtags: "{hashtags}"
 Instruções da plataforma: {instrucoes}
 Dados de tendências: {dados_tendencias if dados_tendencias else "Nenhum"}
 
-Gere APENAS um JSON com estas chaves:
+Gere APENAS um JSON com a chave:
 - "roteiro": string única com o roteiro completo, dividido em cenas com [CENA X – ABERTURA (0s-3s)], descrevendo enquadramento, falas, sons e transições. Adapte ao formato da plataforma ({'Shorts/Reels' if req.plataforma in ['tiktok', 'instagram'] else 'vídeo longo/médio'}).
-- "ideiaEdicao": string única descritiva com NO MÍNIMO 150 PALAVRAS, incluindo paleta de cores (hex), fontes, filtros, música (gênero e BPM), efeitos sonoros e elementos gráficos.
-- "tendencias": array de 3 strings curtas sobre tendências identificadas.
 
 Responda SOMENTE com o JSON puro, sem markdown."""
-    resposta_longa = chamar_groq(prompt_roteiro)
-    dados_longos = normalizar_chaves_json(limpar_e_extrair_json(resposta_longa))
-
-    roteiro = dados_longos.get("roteiro")
+    resposta_roteiro = chamar_groq_com_chave(prompt_roteiro, indice_chave=0)
+    dados_roteiro = normalizar_chaves_json(limpar_e_extrair_json(resposta_roteiro))
+    roteiro = dados_roteiro.get("roteiro")
     if isinstance(roteiro, list):
         roteiro = "\n".join([f"[{c.get('nome', 'Cena')}] {c.get('fala', '')}" for c in roteiro])
     if not roteiro:
         roteiro = f"[ABERTURA] Apresentação do tema '{req.tema}'. [DESENVOLVIMENTO] Principais pontos. [ENCERRAMENTO] Chamada para ação."
 
-    ideia_edicao = dados_longos.get("ideiaEdicao")
+    # ========== PASSO 4: Ideia de Edição + Tendências (Groq 2) ==========
+    prompt_edicao = f"""Você é um especialista em edição de vídeos para {nome_plataforma}.
+Crie a ideia de edição e identifique tendências com base nas informações abaixo.
+
+Tema: "{req.tema}"
+Título: "{titulo}"
+Descrição: "{descricao}"
+Hashtags: "{hashtags}"
+Roteiro: {roteiro[:500]}... (resumo)
+
+Gere APENAS um JSON com as chaves:
+- "ideiaEdicao": string única descritiva com NO MÍNIMO 150 PALAVRAS, incluindo paleta de cores (hex), fontes, filtros, música (gênero e BPM), efeitos sonoros e elementos gráficos.
+- "tendencias": array de 3 strings curtas sobre tendências identificadas.
+
+Responda SOMENTE com o JSON puro, sem markdown."""
+    resposta_edicao = chamar_groq_com_chave(prompt_edicao, indice_chave=1)
+    dados_edicao = normalizar_chaves_json(limpar_e_extrair_json(resposta_edicao))
+
+    ideia_edicao = dados_edicao.get("ideiaEdicao")
     if isinstance(ideia_edicao, list):
         ideia_edicao = "\n".join(ideia_edicao)
     if not ideia_edicao or len(ideia_edicao.strip()) < 10:
         ideia_edicao = "Paleta: #0A0A0A, #FFD700, #00E5FF. Fonte Montserrat. Música eletrônica 120 BPM. Cortes rápidos com glitch."
 
-    tendencias = dados_longos.get("tendencias", [])
+    tendencias = dados_edicao.get("tendencias", [])
     if not isinstance(tendencias, list) or not tendencias:
         tendencias = [req.tema, f"Dicas de {req.tema}", f"Tendências em {req.tema}"]
 
@@ -487,8 +563,7 @@ Responda SOMENTE com o JSON puro, sem markdown."""
         "tema": req.tema,
         "fonteTendencias": fonte,
     }
-
-# ==========================================
+    # ==========================================
 # ENDPOINT DE SEQUÊNCIA DE 10 IDEIAS
 # ==========================================
 
@@ -534,7 +609,7 @@ REGRAS IMPORTANTES:
 
 Responda APENAS com um JSON puro contendo a chave "ideias", que é um array de 10 objetos com "titulo" e "temaCurto"."""
 
-    resposta = chamar_deepseek(prompt, max_tokens=1000)
+    resposta = chamar_deepseek_com_chave(prompt, indice_chave=0, max_tokens=1000)
     dados = limpar_e_extrair_json(resposta)
     ideias = dados.get("ideias", [])
     if not isinstance(ideias, list) or len(ideias) == 0:
@@ -598,8 +673,8 @@ async def notificacao_pagamento(request: Request):
 async def status():
     return {
         "status": "online",
-        "deepseek_configurado": bool(DEEPSEEK_API_KEY),
-        "groq_configurado": bool(GROQ_API_KEY),
+        "deepseek_configurado": len(DEEPSEEK_API_KEYS) > 0,
+        "groq_configurado": len(GROQ_API_KEYS) > 0,
         "youtube_configurado": bool(YOUTUBE_API_KEY),
         "trends_mcp_configurado": bool(TRENDSMCP_API_KEY),
         "google_login_configurado": bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET),
