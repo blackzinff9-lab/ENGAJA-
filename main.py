@@ -30,7 +30,7 @@ TRENDSMCP_API_KEY = os.getenv("TRENDSMCP_API_KEY", "")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 JWT_SECRET = os.getenv("JWT_SECRET", "contentforge-secret-change-me")
-GROQ_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
+GROQ_MODEL = "llama-3.3-70b-versatile"  # ✅ MODELO ATUALIZADO
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
@@ -51,12 +51,12 @@ def get_base_url(request=None):
 class RequisicaoConteudo(BaseModel):
     tema: str
     plataforma: str
-    idioma: str = "pt"  # ✅ NOVO: campo de idioma, padrão português
+    idioma: str = "pt"
 
 class RequisicaoSequencia(BaseModel):
     tema: str
     plataforma: str
-    idioma: str = "pt"  # ✅ Também para sequência
+    idioma: str = "pt"
 
 # ========== GOOGLE OAUTH ==========
 @app.get("/api/auth/google/login")
@@ -213,7 +213,7 @@ def chamar_groq(prompt: str) -> str:
     if not GROQ_API_KEY: raise HTTPException(500, detail="GROQ_API_KEY não configurada")
     resp = requests.post(GROQ_URL, headers={"Content-Type": "application/json", "Authorization": f"Bearer {GROQ_API_KEY}"},
                         json={"model": GROQ_MODEL, "messages": [
-                            {"role": "system", "content": "You are a Brazilian specialist in viral content creation. Reply ONLY with a valid JSON object."},
+                            {"role": "system", "content": "You are a multilingual content creation specialist. Reply ONLY with a valid JSON object in the same language as the user's prompt."},
                             {"role": "user", "content": prompt}
                         ], "temperature": 0.8, "max_tokens": 8000}, timeout=90)
     if resp.status_code == 429: raise HTTPException(429, detail="Limite de requisições do Groq atingido.")
@@ -316,10 +316,8 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
     if not req.tema.strip() or req.plataforma not in ("tiktok", "instagram", "youtube"):
         raise HTTPException(400, detail="Dados inválidos")
 
-    # Definir idioma (padrão português)
     idioma = req.idioma if req.idioma in ("pt", "en") else "pt"
 
-    # Autenticação
     user_id = None
     auth = request.headers.get("Authorization")
     if auth and auth.startswith("Bearer "):
@@ -328,7 +326,6 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
         except:
             pass
 
-    # Verificação de limite
     if user_id:
         pode, restante = await pode_gerar(user_id)
         if not pode:
@@ -336,7 +333,6 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
 
     nome_plataforma = {"tiktok": "TikTok", "instagram": "Instagram", "youtube": "YouTube"}[req.plataforma]
 
-    # Pesquisa de tendências
     dados_tendencias = ""
     fonte = "groq_fallback"
     if req.plataforma == "youtube":
@@ -348,7 +344,6 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
     if not dados_tendencias:
         dados_tendencias = fallback_groq_pesquisa(req.tema, nome_plataforma) or ""
 
-    # Instruções específicas por plataforma (agora no idioma escolhido)
     instrucoes = ""
     if req.plataforma == "youtube":
         if idioma == "en":
@@ -398,7 +393,6 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
 - Roteiro: Para um Reels. Deve ser visualmente atraente, com uma introdução que prenda a atenção imediatamente, desenvolvimento do valor e uma conclusão que incentive a salvar ou compartilhar.
 """
 
-    # Prompt principal no idioma escolhido
     if idioma == "en":
         prompt_principal = f"""You are a viral content creator specialized in {nome_plataforma}.
 
@@ -447,7 +441,6 @@ Agora gere o JSON para o tema "{req.tema}" seguindo rigorosamente o formato e as
     resposta_groq = chamar_groq(prompt_principal)
     conteudo = normalizar_chaves_json(limpar_e_extrair_json(resposta_groq))
 
-    # Garantir que todos os campos tenham valores mínimos (respeitando o idioma)
     if idioma == "en":
         titulo = conteudo.get("titulo") or f"{req.tema.split()[0].capitalize()}: Main Idea"
         descricao = conteudo.get("descricao") or f"Content about {req.tema}. Watch and share!"
@@ -493,7 +486,6 @@ Agora gere o JSON para o tema "{req.tema}" seguindo rigorosamente o formato e as
         if not isinstance(tendencias, list) or not tendencias:
             tendencias = [req.tema, f"Dicas de {req.tema}", f"Tendências em {req.tema}"]
 
-    # Registro de uso
     if user_id:
         await registrar_uso(user_id, "gerar")
 
