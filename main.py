@@ -3,7 +3,8 @@ ENGAJAÍ — Backend FastAPI
 Deploy no Render
 
 Variáveis de ambiente necessárias:
-- GROQ_API_KEY, YOUTUBE_API_KEY, TRENDSMCP_API_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+- GEMINI_API_KEY (obrigatória)
+- YOUTUBE_API_KEY, TRENDSMCP_API_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 - JWT_SECRET, MP_ACCESS_TOKEN, SUPABASE_URL, SUPABASE_KEY (service_role)
 """
 
@@ -24,14 +25,14 @@ app = FastAPI(title="ENGAJAÍ API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 # ========== CONFIGURAÇÕES ==========
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 TRENDSMCP_API_KEY = os.getenv("TRENDSMCP_API_KEY", "")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 JWT_SECRET = os.getenv("JWT_SECRET", "contentforge-secret-change-me")
-GROQ_MODEL = "llama-3.1-8b-instant"  # Modelo com maior cota gratuita (14.400 req/dia)
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+GEMINI_MODEL = "gemini-2.5-flash"                     # Modelo Gemini gratuito com saída de 8192 tokens
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
 MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
@@ -209,16 +210,37 @@ def normalizar_chaves_json(dados: dict) -> dict:
         corrigido[chave] = v
     return corrigido
 
-def chamar_groq(prompt: str) -> str:
-    if not GROQ_API_KEY: raise HTTPException(500, detail="GROQ_API_KEY não configurada")
-    resp = requests.post(GROQ_URL, headers={"Content-Type": "application/json", "Authorization": f"Bearer {GROQ_API_KEY}"},
-                        json={"model": GROQ_MODEL, "messages": [
-                            {"role": "system", "content": "You are a multilingual content creation specialist. Reply ONLY with a valid JSON object in the same language as the user's prompt."},
-                            {"role": "user", "content": prompt}
-                        ], "temperature": 0.8, "max_tokens": 8000}, timeout=90)
-    if resp.status_code == 429: raise HTTPException(429, detail="Limite de requisições do Groq atingido.")
-    if not resp.ok: raise HTTPException(502, detail=f"Erro na API Groq: {resp.text}")
-    return resp.json()["choices"][0]["message"]["content"]
+def chamar_gemini(prompt: str) -> str:
+    """Chama a API Gemini 2.5 Flash e retorna o texto gerado."""
+    if not GEMINI_API_KEY:
+        raise HTTPException(500, detail="GEMINI_API_KEY não configurada")
+
+    request_body = {
+        "system_instruction": {
+            "parts": [{"text": "You are a multilingual content creation specialist. Reply ONLY with a valid JSON object in the same language as the user's prompt."}]
+        },
+        "contents": [
+            {"role": "user", "parts": [{"text": prompt}]}
+        ],
+        "generationConfig": {
+            "temperature": 0.8,
+            "maxOutputTokens": 8000
+        }
+    }
+
+    resp = requests.post(GEMINI_URL, json=request_body, timeout=90)
+
+    if resp.status_code == 429:
+        raise HTTPException(429, detail="Limite de requisições do Gemini atingido.")
+    if not resp.ok:
+        raise HTTPException(502, detail=f"Erro na API Gemini: {resp.text}")
+
+    dados = resp.json()
+    # Extrai o texto da resposta
+    try:
+        return dados["candidates"][0]["content"]["parts"][0]["text"]
+    except (KeyError, IndexError):
+        raise HTTPException(500, detail="Resposta do Gemini em formato inesperado")
 
 def pesquisar_tendencias_youtube(tema: str) -> str:
     if not YOUTUBE_API_KEY: return ""
@@ -252,9 +274,9 @@ def pesquisar_tendencias_mcp(tema: str, plataforma: str) -> str:
         print(f"[Trends MCP] Erro: {e}")
         return ""
 
-def fallback_groq_pesquisa(tema: str, plataforma: str) -> str:
+def fallback_gemini_pesquisa(tema: str, plataforma: str) -> str:
     prompt = f"Com base no seu conhecimento, aja como um especialista em tendências do {plataforma}. Liste 3 tópicos em alta sobre '{tema}', hashtags relevantes e estilo de conteúdo."
-    return chamar_groq(prompt)
+    return chamar_gemini(prompt)
 
 # ========== CONTROLE DE LIMITES ==========
 async def get_plano_usuario(user_id: str) -> str:
@@ -307,7 +329,7 @@ async def verificar_status_assinatura(user_id: str):
     except Exception as e:
         print(f"[Verificação Assinatura] Erro: {e}")
         return {"status": "error", "mensagem": str(e)}
-        # ==========================================
+       # ==========================================
 # ENDPOINT PRINCIPAL DE GERAÇÃO (COM IDIOMA)
 # ==========================================
 
@@ -334,7 +356,7 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
     nome_plataforma = {"tiktok": "TikTok", "instagram": "Instagram", "youtube": "YouTube"}[req.plataforma]
 
     dados_tendencias = ""
-    fonte = "groq_fallback"
+    fonte = "gemini_fallback"
     if req.plataforma == "youtube":
         dados_tendencias = pesquisar_tendencias_youtube(req.tema)
         if dados_tendencias: fonte = "youtube_api"
@@ -342,7 +364,7 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
         dados_tendencias = pesquisar_tendencias_mcp(req.tema, req.plataforma)
         if dados_tendencias: fonte = "trends_mcp"
     if not dados_tendencias:
-        dados_tendencias = fallback_groq_pesquisa(req.tema, nome_plataforma) or ""
+        dados_tendencias = fallback_gemini_pesquisa(req.tema, nome_plataforma) or ""
 
     instrucoes = ""
     if req.plataforma == "youtube":
@@ -438,8 +460,8 @@ FORMATO DE RESPOSTA OBRIGATÓRIO:
 Agora gere o JSON para o tema "{req.tema}" seguindo rigorosamente o formato e as instruções específicas para {nome_plataforma}.
 """
 
-    resposta_groq = chamar_groq(prompt_principal)
-    conteudo = normalizar_chaves_json(limpar_e_extrair_json(resposta_groq))
+    resposta_ia = chamar_gemini(prompt_principal)
+    conteudo = normalizar_chaves_json(limpar_e_extrair_json(resposta_ia))
 
     if idioma == "en":
         titulo = conteudo.get("titulo") or f"{req.tema.split()[0].capitalize()}: Main Idea"
@@ -551,7 +573,7 @@ REGRAS IMPORTANTES:
 Responda APENAS com um JSON puro contendo a chave "ideias", que é um array de 10 objetos com "titulo" e "temaCurto".
 """
 
-    resposta = chamar_groq(prompt)
+    resposta = chamar_gemini(prompt)
     dados = limpar_e_extrair_json(resposta)
     ideias = dados.get("ideias", [])
     if not isinstance(ideias, list) or len(ideias) == 0:
@@ -615,7 +637,7 @@ async def notificacao_pagamento(request: Request):
 async def status():
     return {
         "status": "online",
-        "groq_configurado": bool(GROQ_API_KEY),
+        "gemini_configurado": bool(GEMINI_API_KEY),
         "youtube_configurado": bool(YOUTUBE_API_KEY),
         "trends_mcp_configurado": bool(TRENDSMCP_API_KEY),
         "google_login_configurado": bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET),
@@ -653,4 +675,4 @@ else:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000))) 
