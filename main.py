@@ -30,7 +30,7 @@ TRENDSMCP_API_KEY = os.getenv("TRENDSMCP_API_KEY", "")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 JWT_SECRET = os.getenv("JWT_SECRET", "contentforge-secret-change-me")
-GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_MODEL = "llama-3.1-8b-instant"  # Modelo com maior cota gratuita (14.400 req/dia)
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
@@ -101,13 +101,13 @@ async def google_callback(request: Request, code: str = Query(...)):
         # Buscar ou criar usuário no Supabase
         user_id = ""
         try:
-            res = supabase.table("public.users").select("id").eq("email", email).execute()
+            res = supabase.table("users").select("id").eq("email", email).execute()
             if res.data and len(res.data) > 0:
                 user_id = res.data[0]["id"]
-                supabase.table("public.users").update({"name": nome, "plan": plano_inicial}).eq("id", user_id).execute()
+                supabase.table("users").update({"name": nome, "plan": plano_inicial}).eq("id", user_id).execute()
             else:
                 user_id = str(uuid.uuid4())
-                supabase.table("public.users").insert({
+                supabase.table("users").insert({
                     "id": user_id,
                     "email": email,
                     "name": nome,
@@ -153,7 +153,7 @@ async def verificar_token(token: str = Query(...)):
         plano = "free"
         if user_id:
             try:
-                res = supabase.table("public.users").select("plan").eq("id", user_id).execute()
+                res = supabase.table("users").select("plan").eq("id", user_id).execute()
                 if res.data:
                     plano = res.data[0].get("plan", "free")
                     if plano == "pro":
@@ -259,14 +259,14 @@ def fallback_groq_pesquisa(tema: str, plataforma: str) -> str:
 # ========== CONTROLE DE LIMITES ==========
 async def get_plano_usuario(user_id: str) -> str:
     try:
-        res = supabase.table("public.users").select("plan").eq("id", user_id).execute()
+        res = supabase.table("users").select("plan").eq("id", user_id).execute()
         return res.data[0].get("plan", "free") if res.data else "free"
     except: return "free"
 
 async def get_uso_diario(user_id: str) -> int:
     try:
         hoje = datetime.now().strftime("%Y-%m-%d")
-        res = supabase.table("public.usage_logs").select("*").eq("user_id", user_id).gte("created_at", hoje).execute()
+        res = supabase.table("usage_logs").select("*").eq("user_id", user_id).gte("created_at", hoje).execute()
         return len(res.data) if res.data else 0
     except: return 0
 
@@ -283,7 +283,7 @@ async def registrar_uso(user_id: str, action_type: str):
     data = {"user_id": user_id, "action_type": action_type, "created_at": datetime.now().isoformat()}
     print(f"[DEBUG] Inserindo usage_logs: {data}")
     try:
-        res = supabase.table("public.usage_logs").insert(data).execute()
+        res = supabase.table("usage_logs").insert(data).execute()
         print(f"[DEBUG] Inserção OK: {res}")
     except Exception as e:
         print(f"[Supabase] ERRO ao inserir usage_logs:")
@@ -295,12 +295,12 @@ async def verificar_status_assinatura(user_id: str):
         if search.get("status") == 200:
             results = search["response"]["results"]
             if not results:
-                supabase.table("public.users").update({"plan": "free"}).eq("id", user_id).execute()
+                supabase.table("users").update({"plan": "free"}).eq("id", user_id).execute()
                 return {"status": "free", "mensagem": "Nenhuma assinatura"}
             sub = results[0]
             status = sub.get("status", "cancelled")
             if status != "authorized":
-                supabase.table("public.users").update({"plan": "free"}).eq("id", user_id).execute()
+                supabase.table("users").update({"plan": "free"}).eq("id", user_id).execute()
                 return {"status": "free", "mensagem": f"Assinatura {status}"}
             return {"status": "pro", "mensagem": "Ativa"}
         return {"status": "unknown", "mensagem": "Não foi possível verificar"}
@@ -606,7 +606,7 @@ async def notificacao_pagamento(request: Request):
             payment = mp_sdk.payment().get(payment_id)
             if payment.get("status") == 200 and payment["response"]["status"] == "approved":
                 user_id = payment["response"]["external_reference"]
-                supabase.table("public.users").update({"plan": "pro"}).eq("id", user_id).execute()
+                supabase.table("users").update({"plan": "pro"}).eq("id", user_id).execute()
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(500, detail=f"Erro webhook: {str(e)}")
