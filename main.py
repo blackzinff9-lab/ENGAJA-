@@ -3,7 +3,8 @@ ENGAJAÍ — Backend FastAPI
 Deploy no Render
 
 Variáveis de ambiente necessárias:
-- GEMINI_API_KEY (obrigatória)
+- DEEPSEEK_API_KEY (obrigatória — textos curtos)
+- GROQ_API_KEY (obrigatória — roteiros longos)
 - YOUTUBE_API_KEY, TRENDSMCP_API_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 - JWT_SECRET, MP_ACCESS_TOKEN, SUPABASE_URL, SUPABASE_KEY (service_role)
 """
@@ -25,14 +26,20 @@ app = FastAPI(title="ENGAJAÍ API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 # ========== CONFIGURAÇÕES ==========
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 TRENDSMCP_API_KEY = os.getenv("TRENDSMCP_API_KEY", "")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 JWT_SECRET = os.getenv("JWT_SECRET", "contentforge-secret-change-me")
-GEMINI_MODEL = "gemini-2.0-flash"                     # Modelo Gemini gratuito ativo — saída de 8192 tokens
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+
+# Modelos
+DEEPSEEK_MODEL = "deepseek-chat"
+DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
+GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+
 MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
@@ -210,36 +217,56 @@ def normalizar_chaves_json(dados: dict) -> dict:
         corrigido[chave] = v
     return corrigido
 
-def chamar_gemini(prompt: str) -> str:
-    """Chama a API Gemini 2.0 Flash e retorna o texto gerado."""
-    if not GEMINI_API_KEY:
-        raise HTTPException(500, detail="GEMINI_API_KEY não configurada")
-
-    request_body = {
-        "system_instruction": {
-            "parts": [{"text": "You are a multilingual content creation specialist. Reply ONLY with a valid JSON object in the same language as the user's prompt."}]
-        },
-        "contents": [
-            {"role": "user", "parts": [{"text": prompt}]}
-        ],
-        "generationConfig": {
-            "temperature": 0.8,
-            "maxOutputTokens": 8000
-        }
+def chamar_deepseek(prompt: str, max_tokens: int = 500) -> str:
+    """API DeepSeek — textos curtos (título, descrição, hashtags)."""
+    if not DEEPSEEK_API_KEY:
+        raise HTTPException(500, detail="DEEPSEEK_API_KEY não configurada")
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {DEEPSEEK_API_KEY}"
     }
-
-    resp = requests.post(GEMINI_URL, json=request_body, timeout=90)
-
+    request_body = {
+        "model": DEEPSEEK_MODEL,
+        "messages": [
+            {"role": "system", "content": "You are a multilingual content creation specialist. Reply ONLY with a valid JSON object in the same language as the user's prompt."},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.8,
+        "max_tokens": max_tokens,
+        "response_format": {"type": "json_object"}
+    }
+    resp = requests.post(DEEPSEEK_URL, headers=headers, json=request_body, timeout=60)
     if resp.status_code == 429:
-        raise HTTPException(429, detail="Limite de requisições do Gemini atingido.")
+        raise HTTPException(429, detail="Limite de requisições da DeepSeek atingido.")
     if not resp.ok:
-        raise HTTPException(502, detail=f"Erro na API Gemini: {resp.text}")
-
+        raise HTTPException(502, detail=f"Erro na API DeepSeek: {resp.text}")
     dados = resp.json()
-    try:
-        return dados["candidates"][0]["content"]["parts"][0]["text"]
-    except (KeyError, IndexError):
-        raise HTTPException(500, detail="Resposta do Gemini em formato inesperado")
+    return dados["choices"][0]["message"]["content"]
+
+def chamar_groq(prompt: str) -> str:
+    """API Groq — roteiros longos e ideias de edição."""
+    if not GROQ_API_KEY:
+        raise HTTPException(500, detail="GROQ_API_KEY não configurada")
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {GROQ_API_KEY}"
+    }
+    request_body = {
+        "model": GROQ_MODEL,
+        "messages": [
+            {"role": "system", "content": "You are a multilingual content creation specialist. Reply ONLY with a valid JSON object in the same language as the user's prompt."},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.8,
+        "max_tokens": 4000,
+    }
+    resp = requests.post(GROQ_URL, headers=headers, json=request_body, timeout=90)
+    if resp.status_code == 429:
+        raise HTTPException(429, detail="Limite de requisições do Groq atingido.")
+    if not resp.ok:
+        raise HTTPException(502, detail=f"Erro na API Groq: {resp.text}")
+    dados = resp.json()
+    return dados["choices"][0]["message"]["content"]
 
 def pesquisar_tendencias_youtube(tema: str) -> str:
     if not YOUTUBE_API_KEY: return ""
@@ -273,9 +300,9 @@ def pesquisar_tendencias_mcp(tema: str, plataforma: str) -> str:
         print(f"[Trends MCP] Erro: {e}")
         return ""
 
-def fallback_gemini_pesquisa(tema: str, plataforma: str) -> str:
+def fallback_pesquisa(tema: str, plataforma: str) -> str:
     prompt = f"Com base no seu conhecimento, aja como um especialista em tendências do {plataforma}. Liste 3 tópicos em alta sobre '{tema}', hashtags relevantes e estilo de conteúdo."
-    return chamar_gemini(prompt)
+    return chamar_deepseek(prompt, max_tokens=300)
 
 # ========== CONTROLE DE LIMITES ==========
 async def get_plano_usuario(user_id: str) -> str:
@@ -329,7 +356,7 @@ async def verificar_status_assinatura(user_id: str):
         print(f"[Verificação Assinatura] Erro: {e}")
         return {"status": "error", "mensagem": str(e)}
         # ==========================================
-# ENDPOINT PRINCIPAL DE GERAÇÃO (COM IDIOMA)
+# ENDPOINT PRINCIPAL DE GERAÇÃO (DUAS APIs)
 # ==========================================
 
 @app.post("/api/gerar")
@@ -354,8 +381,9 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
 
     nome_plataforma = {"tiktok": "TikTok", "instagram": "Instagram", "youtube": "YouTube"}[req.plataforma]
 
+    # Pesquisa de tendências
     dados_tendencias = ""
-    fonte = "gemini_fallback"
+    fonte = "fallback"
     if req.plataforma == "youtube":
         dados_tendencias = pesquisar_tendencias_youtube(req.tema)
         if dados_tendencias: fonte = "youtube_api"
@@ -363,149 +391,87 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
         dados_tendencias = pesquisar_tendencias_mcp(req.tema, req.plataforma)
         if dados_tendencias: fonte = "trends_mcp"
     if not dados_tendencias:
-        dados_tendencias = fallback_gemini_pesquisa(req.tema, nome_plataforma) or ""
+        dados_tendencias = fallback_pesquisa(req.tema, nome_plataforma) or ""
 
+    # Instruções da plataforma
     instrucoes = ""
     if req.plataforma == "youtube":
         if idioma == "en":
-            instrucoes = """
-**YouTube:**
-- Title: Objective, with the main keyword on the left and a **maximum of 75 characters**. Must generate curiosity.
-- Description: The core of SEO. Must be long (**150–300 words**), functioning as a mini article. Repeat the main keyword **2–4 times** and include related keywords **2–3 times**. Include a call to action (subscribe, comment). Use **3 to 5 strategic hashtags** at the end of the description.
-- Script: For a long or medium-length video. Should have an introduction that summarizes the value, detailed development, and a conclusion with a strong call to action.
-"""
+            instrucoes = """YouTube: Objective title (max 75 chars). Long description (150-300 words) as mini article. 3-5 strategic hashtags at the end. Long/medium video script with strong hook and call to action."""
         else:
-            instrucoes = """
-**YouTube:**
-- Título: Objetivo, com a palavra-chave principal à esquerda e no **máximo 75 caracteres**. Deve gerar curiosidade.
-- Descrição: A peça central do SEO. Deve ser longa (**150–300 palavras**), funcionando como um mini artigo. Repita a palavra-chave principal **2–4 vezes** e inclua palavras-chave relacionadas **2–3 vezes**. Inclua uma chamada para ação (inscrever-se, comentar). Use de **3 a 5 hashtags** estratégicas no final da descrição.
-- Roteiro: Para um vídeo de formato longo ou médio. Deve ter uma introdução que resuma o valor, desenvolvimento detalhado e uma conclusão com call to action forte.
-"""
+            instrucoes = """YouTube: Título objetivo (máx 75 caracteres). Descrição longa (150-300 palavras) como mini artigo. 3-5 hashtags estratégicas no final. Roteiro para vídeo longo/médio com gancho forte e call to action."""
     elif req.plataforma == "tiktok":
         if idioma == "en":
-            instrucoes = """
-**TikTok:**
-- Title (on-screen text and caption): Use **long-tail keywords** and eye-catching text in the first few seconds to boost retention. TikTok's AI analyzes on-screen text, so it's crucial. Create a very strong hook in the first 3 seconds.
-- Description: Short and direct, with the **most important keywords in the first 100 characters**.
-- Hashtags: Use **few but good ones**: 1-2 trending, 1-2 niche, and 1 of your brand (#ENGAJAÍ).
-- Script: For a short vertical video. Should be dynamic, with quick cuts, on-screen text (which serves as SEO). Focus on retention and an explosive opening hook.
-"""
+            instrucoes = """TikTok: Eye-catching title with long-tail keywords. Short description (100 chars). Few hashtags (1-2 trending, 1-2 niche, 1 brand). Dynamic short vertical script with explosive hook and quick cuts."""
         else:
-            instrucoes = """
-**TikTok:**
-- Título (Texto na tela e legenda): Use **palavras-chave de cauda longa** e texto chamativo nos primeiros segundos para incentivar a retenção. A IA do TikTok analisa o texto na tela, então ele é crucial. Crie um gancho fortíssimo nos primeiros 3 segundos.
-- Descrição: Curta e direta, com as **palavras-chave mais importantes nos primeiros 100 caracteres**.
-- Hashtags: Use **poucas e boas**: 1-2 de tendência, 1-2 de nicho e 1 da sua marca (#ENGAJAÍ).
-- Roteiro: Para um vídeo curto e vertical. Deve ser dinâmico, com cortes rápidos, texto na tela (que serve como SEO). Foque em retenção e um gancho inicial explosivo.
-"""
-    elif req.plataforma == "instagram":
-        if idioma == "en":
-            instrucoes = """
-**Instagram:**
-- Title (on-screen text): Creative, with a **main keyword in the first 3 seconds** of on-screen text. The goal is to generate "saves" and connection.
-- Description: The first sentence is crucial (**hook + SEO**). Use paragraphs, emojis, and formatting to create scannable text. Include a call to action. Use **3 to 5 relevant hashtags** (preferably at the end or in the first comment).
-- Script: For a Reel. Should be visually attractive, with an introduction that grabs attention immediately, value development, and a conclusion that encourages saving or sharing.
-"""
-        else:
-            instrucoes = """
-**Instagram:**
-- Título (Texto na tela): Criativo, com uma **palavra-chave principal nos primeiros 3 segundos** do texto na tela. O objetivo é gerar "salvamentos" e conexão.
-- Descrição: A primeira frase é crucial (**gancho + SEO**). Use parágrafos, emojis e formatação para criar um texto escaneável. Inclua uma chamada para ação. Use de **3 a 5 hashtags** relevantes (de preferência no final ou no primeiro comentário).
-- Roteiro: Para um Reels. Deve ser visualmente atraente, com uma introdução que prenda a atenção imediatamente, desenvolvimento do valor e uma conclusão que incentive a salvar ou compartilhar.
-"""
-
-    if idioma == "en":
-        prompt_principal = f"""You are a viral content creator specialized in {nome_plataforma}.
-
-Video topic: "{req.tema}"
-
-Trend data (use as inspiration):
-{f"BEGINNING OF TREND DATA:\n{dados_tendencias}\nEND OF TREND DATA\n" if dados_tendencias else "No external data available."}
-
-STRICT PLATFORM-SPECIFIC INSTRUCTIONS:
-{instrucoes}
-
-MANDATORY RESPONSE FORMAT:
-1. Reply ONLY with the pure JSON, no introduction, no markdown, no comments.
-2. The JSON MUST have exactly these keys: "titulo", "descricao", "hashtags", "roteiro", "ideiaEdicao", "tendencias".
-3. "hashtags": SINGLE STRING with tags separated by spaces, each starting with #. DO NOT USE ARRAY.
-4. "roteiro": SINGLE STRING containing the COMPLETE video script. Divide into scenes with [SCENE X – OPENING (0s-3s)], describe framing, speeches, on-screen text (for SEO), sounds, and transitions. DO NOT USE ARRAY.
-5. "ideiaEdicao": SINGLE STRING with at least 150 WORDS, including color palette (hex codes), fonts, filters, music (genre and BPM), sound effects, graphic elements.
-6. "tendencias": array of 3 short strings.
-7. All strings must be in English.
-
-Now generate the JSON for the topic "{req.tema}" strictly following the format and the specific instructions for {nome_plataforma}.
-"""
+            instrucoes = """TikTok: Título chamativo com palavras-chave de cauda longa. Descrição curta (100 caracteres). Poucas hashtags (1-2 de tendência, 1-2 de nicho, 1 da marca). Roteiro curto vertical dinâmico com gancho explosivo e cortes rápidos."""
     else:
-        prompt_principal = f"""Você é um criador de conteúdo viral brasileiro especializado em {nome_plataforma}.
+        if idioma == "en":
+            instrucoes = """Instagram: Creative title with main keyword in first 3 seconds. Description with strong hook and SEO. 3-5 relevant hashtags. Visually attractive Reel script encouraging saves and shares."""
+        else:
+            instrucoes = """Instagram: Título criativo com palavra-chave nos primeiros 3 segundos. Descrição com gancho forte e SEO. 3-5 hashtags relevantes. Roteiro para Reels visualmente atraente que incentive salvar e compartilhar."""
+
+    # ==================== PASSO 1: API DeepSeek (textos curtos) ====================
+    prompt_textos_curtos = f"""{instrucoes}
 
 Tema do vídeo: "{req.tema}"
 
 Dados de tendências (use como inspiração):
-{f"INÍCIO DOS DADOS DE TENDÊNCIA:\n{dados_tendencias}\nFIM DOS DADOS DE TENDÊNCIA\n" if dados_tendencias else "Nenhum dado externo disponível."}
+{f"DADOS:\n{dados_tendencias}\n" if dados_tendencias else "Sem dados externos."}
 
-INSTRUÇÕES ESTRITAS E ADAPTADAS À PLATAFORMA:
-{instrucoes}
+Gere APENAS um JSON com estas chaves:
+- "titulo": título chamativo e otimizado para {nome_plataforma} (máx. 100 caracteres).
+- "descricao": descrição envolvente com call-to-action e palavras-chave (máx. 400 caracteres).
+- "hashtags": string única com hashtags separadas por espaço (ex.: "#tag1 #tag2 #tag3").
 
-FORMATO DE RESPOSTA OBRIGATÓRIO:
-1. Responda APENAS com o JSON puro, sem introdução, sem markdown, sem comentários.
-2. O JSON DEVE ter exatamente as chaves: "titulo", "descricao", "hashtags", "roteiro", "ideiaEdicao", "tendencias".
-3. "hashtags": STRING ÚNICA com tags separadas por espaço, cada uma começando com #. NÃO USE ARRAY.
-4. "roteiro": STRING ÚNICA contendo o roteiro COMPLETO do vídeo. Divida em cenas com [CENA X – ABERTURA (0s-3s)], descreva enquadramento, falas, texto na tela (para SEO), sons e transições. O roteiro deve ser adaptado ao formato da plataforma (Shorts/Reels para TikTok/Instagram, vídeo mais longo para YouTube). NÃO USE ARRAY.
-5. "ideiaEdicao": STRING ÚNICA descritiva com no MÍNIMO 150 PALAVRAS, incluindo paleta de cores (códigos hex), fontes, filtros, música (gênero e BPM), efeitos sonoros, elementos gráficos.
-6. "tendencias": array de 3 strings curtas.
-7. Todas as strings devem estar em português brasileiro.
+Responda SOMENTE com o JSON puro, sem markdown."""
+    resposta_curta = chamar_deepseek(prompt_textos_curtos, max_tokens=500)
+    dados_curtos = normalizar_chaves_json(limpar_e_extrair_json(resposta_curta))
+    titulo = dados_curtos.get("titulo") or f"{req.tema.split()[0].capitalize()}: Ideia Principal"
+    descricao = dados_curtos.get("descricao") or f"Conteúdo sobre {req.tema}. Assista e compartilhe!"
+    hashtags = dados_curtos.get("hashtags", "")
+    if isinstance(hashtags, list):
+        hashtags = " ".join(f"#{h.strip().lstrip('#')}" for h in hashtags if h.strip())
+    if not hashtags:
+        palavras = req.tema.split()[:3]
+        hashtags = " ".join([f"#{p.capitalize()}" for p in palavras]) + " #conteudo #viral"
 
-Agora gere o JSON para o tema "{req.tema}" seguindo rigorosamente o formato e as instruções específicas para {nome_plataforma}.
-"""
+    # ==================== PASSO 2: API Groq (roteiro + ideia de edição) ====================
+    prompt_roteiro = f"""Você é um criador de conteúdo viral especializado em {nome_plataforma}.
+Crie o roteiro COMPLETO e a ideia de edição para o vídeo com base nas informações abaixo.
 
-    resposta_ia = chamar_gemini(prompt_principal)
-    conteudo = normalizar_chaves_json(limpar_e_extrair_json(resposta_ia))
+Tema: "{req.tema}"
+Título: "{titulo}"
+Descrição: "{descricao}"
+Hashtags: "{hashtags}"
 
-    if idioma == "en":
-        titulo = conteudo.get("titulo") or f"{req.tema.split()[0].capitalize()}: Main Idea"
-        descricao = conteudo.get("descricao") or f"Content about {req.tema}. Watch and share!"
-        hashtags = conteudo.get("hashtags", "")
-        if isinstance(hashtags, list):
-            hashtags = " ".join(f"#{h.strip().lstrip('#')}" for h in hashtags if h.strip())
-        if not hashtags:
-            palavras = req.tema.split()[:3]
-            hashtags = " ".join([f"#{p.capitalize()}" for p in palavras]) + " #content #viral"
-        roteiro = conteudo.get("roteiro")
-        if isinstance(roteiro, list):
-            roteiro = "\n".join([f"[{c.get('nome', 'Cena')}] {c.get('fala', '')}" for c in roteiro])
-        if not roteiro:
-            roteiro = f"[OPENING] Presentation of the topic '{req.tema}'. [DEVELOPMENT] Main points. [CLOSING] Call to action."
-        ideia_edicao = conteudo.get("ideiaEdicao")
-        if isinstance(ideia_edicao, list):
-            ideia_edicao = "\n".join(ideia_edicao)
-        if not ideia_edicao or len(ideia_edicao.strip()) < 10:
-            ideia_edicao = "Palette: #0A0A0A, #FFD700, #00E5FF. Font: Montserrat. Music: Electronic 120 BPM. Quick cuts with glitch."
-        tendencias = conteudo.get("tendencias", [])
-        if not isinstance(tendencias, list) or not tendencias:
-            tendencias = [req.tema, f"Tips on {req.tema}", f"Trends in {req.tema}"]
-    else:
-        titulo = conteudo.get("titulo") or f"{req.tema.split()[0].capitalize()}: Ideia Principal"
-        descricao = conteudo.get("descricao") or f"Conteúdo sobre {req.tema}. Assista e compartilhe!"
-        hashtags = conteudo.get("hashtags", "")
-        if isinstance(hashtags, list):
-            hashtags = " ".join(f"#{h.strip().lstrip('#')}" for h in hashtags if h.strip())
-        if not hashtags:
-            palavras = req.tema.split()[:3]
-            hashtags = " ".join([f"#{p.capitalize()}" for p in palavras]) + " #conteudo #viral"
-        roteiro = conteudo.get("roteiro")
-        if isinstance(roteiro, list):
-            roteiro = "\n".join([f"[{c.get('nome', 'Cena')}] {c.get('fala', '')}" for c in roteiro])
-        if not roteiro:
-            roteiro = f"[ABERTURA] Apresentação do tema '{req.tema}'. [DESENVOLVIMENTO] Principais pontos. [ENCERRAMENTO] Chamada para ação."
-        ideia_edicao = conteudo.get("ideiaEdicao")
-        if isinstance(ideia_edicao, list):
-            ideia_edicao = "\n".join(ideia_edicao)
-        if not ideia_edicao or len(ideia_edicao.strip()) < 10:
-            ideia_edicao = "Paleta: #0A0A0A, #FFD700, #00E5FF. Fonte Montserrat. Música eletrônica 120 BPM. Cortes rápidos com glitch."
-        tendencias = conteudo.get("tendencias", [])
-        if not isinstance(tendencias, list) or not tendencias:
-            tendencias = [req.tema, f"Dicas de {req.tema}", f"Tendências em {req.tema}"]
+Instruções da plataforma: {instrucoes}
+Dados de tendências: {dados_tendencias if dados_tendencias else "Nenhum"}
+
+Gere APENAS um JSON com estas chaves:
+- "roteiro": string única com o roteiro completo, dividido em cenas com [CENA X – ABERTURA (0s-3s)], descrevendo enquadramento, falas, sons e transições. Adapte ao formato da plataforma ({'Shorts/Reels' if req.plataforma in ['tiktok', 'instagram'] else 'vídeo longo/médio'}).
+- "ideiaEdicao": string única descritiva com NO MÍNIMO 150 PALAVRAS, incluindo paleta de cores (hex), fontes, filtros, música (gênero e BPM), efeitos sonoros e elementos gráficos.
+- "tendencias": array de 3 strings curtas sobre tendências identificadas.
+
+Responda SOMENTE com o JSON puro, sem markdown."""
+    resposta_longa = chamar_groq(prompt_roteiro)
+    dados_longos = normalizar_chaves_json(limpar_e_extrair_json(resposta_longa))
+
+    roteiro = dados_longos.get("roteiro")
+    if isinstance(roteiro, list):
+        roteiro = "\n".join([f"[{c.get('nome', 'Cena')}] {c.get('fala', '')}" for c in roteiro])
+    if not roteiro:
+        roteiro = f"[ABERTURA] Apresentação do tema '{req.tema}'. [DESENVOLVIMENTO] Principais pontos. [ENCERRAMENTO] Chamada para ação."
+
+    ideia_edicao = dados_longos.get("ideiaEdicao")
+    if isinstance(ideia_edicao, list):
+        ideia_edicao = "\n".join(ideia_edicao)
+    if not ideia_edicao or len(ideia_edicao.strip()) < 10:
+        ideia_edicao = "Paleta: #0A0A0A, #FFD700, #00E5FF. Fonte Montserrat. Música eletrônica 120 BPM. Cortes rápidos com glitch."
+
+    tendencias = dados_longos.get("tendencias", [])
+    if not isinstance(tendencias, list) or not tendencias:
+        tendencias = [req.tema, f"Dicas de {req.tema}", f"Tendências em {req.tema}"]
 
     if user_id:
         await registrar_uso(user_id, "gerar")
@@ -523,7 +489,7 @@ Agora gere o JSON para o tema "{req.tema}" seguindo rigorosamente o formato e as
     }
 
 # ==========================================
-# ENDPOINT DE SEQUÊNCIA DE 10 IDEIAS (COM IDIOMA)
+# ENDPOINT DE SEQUÊNCIA DE 10 IDEIAS
 # ==========================================
 
 @app.post("/api/gerar-sequencia")
@@ -548,12 +514,10 @@ Generate EXACTLY 10 ideas. Each idea must have:
 
 IMPORTANT RULES:
 - ALL ideas must be EXACTLY about "{req.tema}". DO NOT stray to other subjects.
-- If the topic is "programming tips", talk about Python, JavaScript, career, tools, etc. NEVER talk about "content continuation" or "engagement strategies".
 - Vary the angles within the same subject: tutorials, lists, common mistakes, cases, tools, curiosities, etc.
 - Optimize for SEO on {nome_plataforma}.
 
-Reply ONLY with a pure JSON containing the key "ideias", which is an array of 10 objects with "titulo" and "temaCurto".
-"""
+Reply ONLY with a pure JSON containing the key "ideias", which is an array of 10 objects with "titulo" and "temaCurto"."""
     else:
         prompt = f"""Você é um estrategista de conteúdo especializado em {nome_plataforma}.
 Um criador está fazendo uma série de vídeos EXATAMENTE sobre este tema: "{req.tema}".
@@ -565,14 +529,12 @@ Gere EXATAMENTE 10 ideias. Cada ideia deve ter:
 
 REGRAS IMPORTANTES:
 - TODAS as ideias devem ser EXATAMENTE sobre "{req.tema}". NÃO desvie para outros assuntos.
-- Se o tema for "dicas de programação", fale sobre Python, JavaScript, carreira, ferramentas, etc. NUNCA fale sobre "continuação de conteúdo" ou "estratégias de engajamento".
 - Varie os ângulos dentro do mesmo assunto: tutoriais, listas, erros comuns, cases, ferramentas, curiosidades, etc.
 - Otimize para SEO no {nome_plataforma}.
 
-Responda APENAS com um JSON puro contendo a chave "ideias", que é um array de 10 objetos com "titulo" e "temaCurto".
-"""
+Responda APENAS com um JSON puro contendo a chave "ideias", que é um array de 10 objetos com "titulo" e "temaCurto"."""
 
-    resposta = chamar_gemini(prompt)
+    resposta = chamar_deepseek(prompt, max_tokens=1000)
     dados = limpar_e_extrair_json(resposta)
     ideias = dados.get("ideias", [])
     if not isinstance(ideias, list) or len(ideias) == 0:
@@ -636,14 +598,15 @@ async def notificacao_pagamento(request: Request):
 async def status():
     return {
         "status": "online",
-        "gemini_configurado": bool(GEMINI_API_KEY),
+        "deepseek_configurado": bool(DEEPSEEK_API_KEY),
+        "groq_configurado": bool(GROQ_API_KEY),
         "youtube_configurado": bool(YOUTUBE_API_KEY),
         "trends_mcp_configurado": bool(TRENDSMCP_API_KEY),
         "google_login_configurado": bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET),
     }
 
 # ==========================================
-# ENDPOINT DE HEALTH CHECK (para cron-job)
+# ENDPOINT DE HEALTH CHECK
 # ==========================================
 
 @app.get("/api/health")
@@ -651,7 +614,7 @@ async def health_check():
     return {"status": "ok"}
 
 # ==========================================
-# SERVIR FRONTEND (corrigido para PWA)
+# SERVIR FRONTEND
 # ==========================================
 
 possiveis_caminhos = [
