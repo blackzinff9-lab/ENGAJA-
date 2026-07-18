@@ -27,9 +27,8 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, 
 
 # ========== CARREGAR MÚLTIPLAS CHAVES ==========
 def carregar_chaves(prefixo: str):
-    """Retorna uma lista de chaves API presentes nas variáveis de ambiente."""
     chaves = []
-    for i in range(1, 11):  # suporta até 10 chaves
+    for i in range(1, 11):
         key = os.getenv(f"{prefixo}_{i}", "")
         if key:
             chaves.append(key)
@@ -135,7 +134,8 @@ async def google_callback(request: Request, code: str = Query(...)):
     except Exception as e:
         print(f"[Google OAuth] Exceção: {e}")
         return RedirectResponse("/?erro=erro_interno")
-        @app.get("/api/auth/verificar")
+
+@app.get("/api/auth/verificar")
 async def verificar_token(token: str = Query(...)):
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
@@ -197,11 +197,6 @@ def normalizar_chaves_json(dados: dict) -> dict:
     return corrigido
 
 def chamar_deepseek_com_chave(prompt: str, indice_chave: int, max_tokens: int = 500) -> str:
-    """
-    Chama a API DeepSeek usando a chave do índice especificado.
-    Se falhar (429), tenta a outra chave DeepSeek disponível.
-    """
-    # Tenta a chave preferencial primeiro
     if indice_chave < len(DEEPSEEK_API_KEYS):
         try:
             api_key = DEEPSEEK_API_KEYS[indice_chave]
@@ -228,7 +223,6 @@ def chamar_deepseek_com_chave(prompt: str, indice_chave: int, max_tokens: int = 
         except Exception as e:
             print(f"[DeepSeek] Erro chave {indice_chave+1}: {e}", flush=True)
 
-    # Fallback: tenta qualquer outra chave DeepSeek disponível
     for idx, api_key in enumerate(DEEPSEEK_API_KEYS):
         if idx == indice_chave:
             continue
@@ -259,11 +253,6 @@ def chamar_deepseek_com_chave(prompt: str, indice_chave: int, max_tokens: int = 
 
 
 def chamar_groq_com_chave(prompt: str, indice_chave: int) -> str:
-    """
-    Chama a API Groq usando a chave do índice especificado.
-    Se falhar (429), tenta a outra chave Groq disponível.
-    """
-    # Tenta a chave preferencial primeiro
     if indice_chave < len(GROQ_API_KEYS):
         try:
             api_key = GROQ_API_KEYS[indice_chave]
@@ -289,7 +278,6 @@ def chamar_groq_com_chave(prompt: str, indice_chave: int) -> str:
         except Exception as e:
             print(f"[Groq] Erro chave {indice_chave+1}: {e}", flush=True)
 
-    # Fallback: tenta qualquer outra chave Groq disponível
     for idx, api_key in enumerate(GROQ_API_KEYS):
         if idx == indice_chave:
             continue
@@ -316,8 +304,7 @@ def chamar_groq_com_chave(prompt: str, indice_chave: int) -> str:
             continue
 
     raise HTTPException(429, detail="Todas as chaves Groq atingiram o limite.")
-
-def pesquisar_tendencias_youtube(tema: str) -> str:
+    def pesquisar_tendencias_youtube(tema: str) -> str:
     if not YOUTUBE_API_KEY: return ""
     try:
         url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&q={urllib.parse.quote(tema)}&type=video&order=viewCount&maxResults=5&relevanceLanguage=pt&key={YOUTUBE_API_KEY}"
@@ -404,7 +391,8 @@ async def verificar_status_assinatura(user_id: str):
     except Exception as e:
         print(f"[Verificação Assinatura] Erro: {e}")
         return {"status": "error", "mensagem": str(e)}
-        # ==========================================
+
+# ==========================================
 # ENDPOINT PRINCIPAL DE GERAÇÃO (DIVISÃO DE TAREFAS)
 # ==========================================
 
@@ -562,8 +550,8 @@ Responda SOMENTE com o JSON puro, sem markdown."""
         "plataforma": req.plataforma,
         "tema": req.tema,
         "fonteTendencias": fonte,
-}
-# ==========================================
+        }
+        # ==========================================
 # ENDPOINT DE SEQUÊNCIA DE 10 IDEIAS
 # ==========================================
 
