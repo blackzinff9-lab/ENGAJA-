@@ -562,8 +562,8 @@ Responda SOMENTE com o JSON puro, sem markdown."""
         "plataforma": req.plataforma,
         "tema": req.tema,
         "fonteTendencias": fonte,
-    }
-    # ==========================================
+}
+# ==========================================
 # ENDPOINT DE SEQUÊNCIA DE 10 IDEIAS
 # ==========================================
 
