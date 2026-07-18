@@ -31,7 +31,7 @@ TRENDSMCP_API_KEY = os.getenv("TRENDSMCP_API_KEY", "")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 JWT_SECRET = os.getenv("JWT_SECRET", "contentforge-secret-change-me")
-GEMINI_MODEL = "gemini-2.5-flash"                     # Modelo Gemini gratuito com saída de 8192 tokens
+GEMINI_MODEL = "gemini-2.0-flash"                     # Modelo Gemini gratuito ativo — saída de 8192 tokens
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
 MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
@@ -211,7 +211,7 @@ def normalizar_chaves_json(dados: dict) -> dict:
     return corrigido
 
 def chamar_gemini(prompt: str) -> str:
-    """Chama a API Gemini 2.5 Flash e retorna o texto gerado."""
+    """Chama a API Gemini 2.0 Flash e retorna o texto gerado."""
     if not GEMINI_API_KEY:
         raise HTTPException(500, detail="GEMINI_API_KEY não configurada")
 
@@ -236,7 +236,6 @@ def chamar_gemini(prompt: str) -> str:
         raise HTTPException(502, detail=f"Erro na API Gemini: {resp.text}")
 
     dados = resp.json()
-    # Extrai o texto da resposta
     try:
         return dados["candidates"][0]["content"]["parts"][0]["text"]
     except (KeyError, IndexError):
@@ -329,7 +328,7 @@ async def verificar_status_assinatura(user_id: str):
     except Exception as e:
         print(f"[Verificação Assinatura] Erro: {e}")
         return {"status": "error", "mensagem": str(e)}
-       # ==========================================
+        # ==========================================
 # ENDPOINT PRINCIPAL DE GERAÇÃO (COM IDIOMA)
 # ==========================================
 
@@ -675,4 +674,4 @@ else:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000))) 
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
