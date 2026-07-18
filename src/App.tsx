@@ -4,6 +4,7 @@ import PaginaLogin from './LoginPage';
 import Termos from './Termos';
 import Privacidade from './Privacidade';
 import ConsentPage from './ConsentPage';
+import Calendario from './Calendario';
 import { Platform } from './types';
 import { StatusBackend } from './api';
 import { Zap, Sparkles, CheckCircle2, Menu, X } from 'lucide-react';
@@ -90,7 +91,7 @@ function App() {
         const resposta = await fetch('/api/status');
         const dados = await resposta.json();
         setStatusBackend(dados);
-        setBackendOk(dados?.groq_configurado && dados?.youtube_configurado && dados?.trends_mcp_configurado);
+        setBackendOk(dados?.groq_configurado && dados?.youtube_configurado && dados?.trendsmcp_configurado);
       } catch {
         setBackendOk(false);
         setStatusBackend(null);
@@ -151,6 +152,7 @@ function App() {
   const path = window.location.pathname;
   if (path === '/termos') return <Termos />;
   if (path === '/privacidade') return <Privacidade />;
+  if (path === '/calendario') return <Calendario />;
 
   if (!usuario) {
     return (
@@ -164,7 +166,8 @@ function App() {
   if (!consentiu) {
     return <ConsentPage onConsent={handleConsent} />;
   }
-    return (
+
+  return (
     <div className="min-h-screen bg-gray-950 text-white font-sans selection:bg-indigo-500/30">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/10 rounded-full blur-[120px]" />
@@ -182,9 +185,8 @@ function App() {
             </span>
           </div>
 
-          {/* Itens desktop (avatar, seletor de idioma, dropdown 3 pontos, logout) */}
-          <div className="hidden md:flex items-center gap-4">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
+            <div className="hidden md:flex items-center gap-2">
               {usuario.avatar && (
                 <img src={usuario.avatar} alt={usuario.nome} className="w-8 h-8 rounded-full" />
               )}
@@ -194,12 +196,10 @@ function App() {
             <button
               onClick={() => setLang(lang === 'pt' ? 'en' : 'pt')}
               className="text-xs px-2 py-1 rounded-lg bg-white/5 text-white/60 hover:text-white transition"
-              title={lang === 'pt' ? 'Switch to English' : 'Mudar para Português'}
             >
               {lang === 'pt' ? '🇧🇷 PT' : '🇺🇸 EN'}
             </button>
 
-            {/* Dropdown 3 pontos (apenas desktop) */}
             <div className="relative">
               <button
                 onClick={() => setMenuDropdownAberto(!menuDropdownAberto)}
@@ -214,86 +214,45 @@ function App() {
 
               {menuDropdownAberto && (
                 <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-lg py-2 z-50">
-                  <a
-                    href="mailto:engajaibrasil00@gmail.com"
-                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition"
-                    onClick={() => setMenuDropdownAberto(false)}
-                  >
+                  <a href="/calendario" className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition" onClick={() => setMenuDropdownAberto(false)}>
+                    📅 Calendário Editorial
+                  </a>
+                  <a href="mailto:engajaibrasil00@gmail.com" className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition" onClick={() => setMenuDropdownAberto(false)}>
                     {t('menu_support')}
                   </a>
-                  <a
-                    href="/termos"
-                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition"
-                    onClick={() => setMenuDropdownAberto(false)}
-                  >
+                  <a href="/termos" className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition" onClick={() => setMenuDropdownAberto(false)}>
                     {t('menu_terms')}
                   </a>
-                  <a
-                    href="/privacidade"
-                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition"
-                    onClick={() => setMenuDropdownAberto(false)}
-                  >
+                  <a href="/privacidade" className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition" onClick={() => setMenuDropdownAberto(false)}>
                     {t('menu_privacy')}
                   </a>
                 </div>
               )}
             </div>
 
-            <button
-              onClick={handleLogout}
-              className="text-sm text-gray-400 hover:text-white transition-colors"
-            >
+            <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors">
               {t('nav_logout')}
             </button>
           </div>
 
-          {/* Botão hamburger mobile (visível apenas em telas pequenas) */}
           <button className="md:hidden text-white" onClick={() => setIsMenuOpen(!isMenuOpen)}>
             {isMenuOpen ? <X /> : <Menu />}
           </button>
         </div>
 
-        {/* Menu mobile (aparece ao clicar no hamburger) */}
         {isMenuOpen && (
           <div className="md:hidden absolute top-full left-0 w-full bg-gray-900 border-t border-gray-800 py-4 px-6 flex flex-col gap-4 animate-fade-in">
             <div className="flex items-center gap-3 mb-2">
-              {usuario.avatar && (
-                <img src={usuario.avatar} alt={usuario.nome} className="w-8 h-8 rounded-full" />
-              )}
+              {usuario.avatar && <img src={usuario.avatar} alt={usuario.nome} className="w-8 h-8 rounded-full" />}
               <span className="text-sm text-gray-400">{usuario.nome}</span>
             </div>
-            <a
-              href="mailto:engajaibrasil00@gmail.com"
-              className="text-sm text-gray-300 hover:text-white transition"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              {t('menu_support')}
-            </a>
-            <a
-              href="/termos"
-              className="text-sm text-gray-300 hover:text-white transition"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              {t('menu_terms')}
-            </a>
-            <a
-              href="/privacidade"
-              className="text-sm text-gray-300 hover:text-white transition"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              {t('menu_privacy')}
-            </a>
+            <a href="/calendario" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>📅 Calendário Editorial</a>
+            <a href="mailto:engajaibrasil00@gmail.com" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>{t('menu_support')}</a>
+            <a href="/termos" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>{t('menu_terms')}</a>
+            <a href="/privacidade" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>{t('menu_privacy')}</a>
             <div className="border-t border-gray-700 pt-3 flex items-center justify-between">
-              <button
-                onClick={() => { handleLogout(); setIsMenuOpen(false); }}
-                className="text-sm text-gray-400 hover:text-white transition"
-              >
-                {t('nav_logout')}
-              </button>
-              <button
-                onClick={() => setLang(lang === 'pt' ? 'en' : 'pt')}
-                className="text-xs px-2 py-1 rounded-lg bg-white/5 text-white/60 hover:text-white transition"
-              >
+              <button onClick={() => { handleLogout(); setIsMenuOpen(false); }} className="text-sm text-gray-400 hover:text-white transition">{t('nav_logout')}</button>
+              <button onClick={() => setLang(lang === 'pt' ? 'en' : 'pt')} className="text-xs px-2 py-1 rounded-lg bg-white/5 text-white/60 hover:text-white transition">
                 {lang === 'pt' ? '🇧🇷 PT' : '🇺🇸 EN'}
               </button>
             </div>
@@ -310,13 +269,9 @@ function App() {
             </div>
             <h1 className="text-6xl md:text-8xl font-black mb-6 tracking-tighter leading-[0.9]">
               {t('hero_title')} <br />
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">
-                {t('hero_highlight')}
-              </span>
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">{t('hero_highlight')}</span>
             </h1>
-            <p className="text-gray-400 text-xl md:text-2xl max-w-3xl mx-auto mb-8">
-              {t('hero_subtitle')}
-            </p>
+            <p className="text-gray-400 text-xl md:text-2xl max-w-3xl mx-auto mb-8">{t('hero_subtitle')}</p>
             <div className="flex flex-wrap justify-center gap-4">
               <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800/40 border border-gray-700/50">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
