@@ -51,6 +51,7 @@ export default function CalendarioModal({ isOpen, onClose, onSave, tituloIdeia }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md p-5 animate-fade-in">
+        {/* Cabeçalho */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <Calendar className="w-5 h-5 text-purple-400" />
@@ -63,6 +64,7 @@ export default function CalendarioModal({ isOpen, onClose, onSave, tituloIdeia }
 
         {etapa === 'calendario' ? (
           <>
+            {/* Navegação do mês */}
             <div className="flex items-center justify-between mb-4">
               <button onClick={() => mudarMes(-1)} className="text-gray-400 hover:text-white transition">
                 <ChevronLeft className="w-5 h-5" />
@@ -73,10 +75,12 @@ export default function CalendarioModal({ isOpen, onClose, onSave, tituloIdeia }
               </button>
             </div>
 
+            {/* Dias da semana */}
             <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-400 mb-2">
               {diasSemana.map(d => <div key={d}>{d}</div>)}
             </div>
 
+            {/* Grade de dias */}
             <div className="grid grid-cols-7 gap-1">
               {Array.from({ length: primeiroDia }).map((_, i) => (
                 <div key={`empty-${i}`} />
@@ -103,6 +107,7 @@ export default function CalendarioModal({ isOpen, onClose, onSave, tituloIdeia }
           </>
         ) : (
           <>
+            {/* Etapa de anotação */}
             <p className="text-sm text-gray-400 mb-3">
               Adicionar <strong className="text-white">"{tituloIdeia}"</strong> ao dia <strong className="text-white">{diaSelecionado?.split('-').reverse().join('/')}</strong>
             </p>
@@ -125,4 +130,4 @@ export default function CalendarioModal({ isOpen, onClose, onSave, tituloIdeia }
       </div>
     </div>
   );
-  }
+            }
