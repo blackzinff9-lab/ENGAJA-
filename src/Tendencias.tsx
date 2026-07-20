@@ -26,30 +26,23 @@ export default function Tendencias() {
     setCarregando(true);
     setErro('');
     try {
-      const apiKey = import.meta.env.VITE_TRENDSMCP_API_KEY || '';
-      // Define a fonte de acordo com a plataforma
-      const fonte = plataforma === 'tiktok' ? 'tiktok' : 'google trends';
-      const resposta = await fetch('https://api.trendsmcp.ai/api', {
+      // Agora chamamos nosso próprio backend, que faz a ponte com o Trends MCP
+      const resposta = await fetch('/api/tendencias', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({ source: fonte, keyword: termo })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ termo, plataforma })
       });
+
       if (!resposta.ok) {
-        setErro('Erro ao buscar tendências. Verifique o termo e tente novamente.');
+        const erroData = await resposta.json();
+        setErro(erroData.detail || 'Erro ao buscar tendências. Tente novamente.');
         return;
       }
+
       const dados = await resposta.json();
-      const corpo = typeof dados.body === 'string' ? JSON.parse(dados.body) : dados.body;
-      const ultimos = corpo.slice(-7).map((p: any) => ({
-        date: p.date || '',
-        value: parseInt(p.value) || 0
-      }));
-      setTendencias(ultimos);
+      setTendencias(dados.tendencias || []);
     } catch (e) {
-      setErro('Falha na conexão. Tente novamente.');
+      setErro('Falha na conexão com o servidor. Tente novamente.');
     } finally {
       setCarregando(false);
     }
