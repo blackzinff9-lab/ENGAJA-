@@ -243,7 +243,7 @@ def pesquisar_trendsmcp(tema: str, plataforma: str) -> str:
         print(f"[Trends MCP] Erro: {e}")
         return ""
 
-# ========== ENDPOINT DE TENDÊNCIAS (ESTÁVEL - LISTA DE VÍDEOS) ==========
+# ========== ENDPOINT DE TENDÊNCIAS (VÍDEOS RECENTES DO YOUTUBE) ==========
 
 @app.post("/api/tendencias")
 async def buscar_tendencias(req: RequisicaoTendencia):
@@ -258,15 +258,18 @@ async def buscar_tendencias(req: RequisicaoTendencia):
             "mensagem": f"Dados de tendências para {req.plataforma.capitalize()} estarão disponíveis em breve. Por enquanto, experimente buscar no YouTube."
         }
 
-    # YouTube: API oficial
+    # YouTube: API oficial com vídeos recentes
     if req.plataforma == "youtube":
         if not YOUTUBE_API_KEY:
             raise HTTPException(500, detail="Chave da API do YouTube não configurada")
         try:
+            # Data de 6 meses atrás no formato ISO 8601
+            seis_meses_atras = (datetime.now(timezone.utc) - timedelta(days=180)).strftime("%Y-%m-%dT%H:%M:%SZ")
             url = (
                 f"https://www.googleapis.com/youtube/v3/search"
                 f"?part=snippet&q={urllib.parse.quote(termo)}"
-                f"&type=video&order=viewCount&maxResults=7"
+                f"&type=video&order=date&maxResults=7"
+                f"&publishedAfter={seis_meses_atras}"
                 f"&relevanceLanguage=pt&key={YOUTUBE_API_KEY}"
             )
             resp = requests.get(url, timeout=10)
