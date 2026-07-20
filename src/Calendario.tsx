@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Sparkles, X, Plus, Trash2, Save, FileText, Hash, Video, Palette, StickyNote, MoveHorizontal, Circle, CheckCircle, Edit3, Play } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sparkles, X, Plus, Trash2, Save, FileText, Hash, Video, Palette, StickyNote, MoveHorizontal, Circle, CheckCircle, Edit3, Play, GripVertical } from 'lucide-react';
 
 type StatusIdeia = 'ideia' | 'gravando' | 'editando' | 'postado';
 
@@ -38,19 +38,19 @@ export default function Calendario() {
   const [modalAberto, setModalAberto] = useState(false);
   const [modoAdicao, setModoAdicao] = useState(false);
 
-  // Campos do formulário manual
   const [novoTitulo, setNovoTitulo] = useState('');
   const [novaDescricao, setNovaDescricao] = useState('');
   const [novasHashtags, setNovasHashtags] = useState('');
   const [novaAnotacao, setNovaAnotacao] = useState('');
 
-  // Estado para mover ideia
   const [ideiaParaMover, setIdeiaParaMover] = useState<string | null>(null);
   const [novaData, setNovaData] = useState('');
 
+  // Drag and Drop
+  const [arrastando, setArrastando] = useState<string | null>(null);
+
   useEffect(() => {
     const salvas = JSON.parse(localStorage.getItem('engajai_calendario') || '[]');
-    // Garantir que ideias antigas sem status recebam o status 'ideia'
     const normalizadas = salvas.map((i: any) => ({ ...i, status: i.status || 'ideia' }));
     setIdeias(normalizadas);
   }, []);
@@ -90,9 +90,7 @@ export default function Calendario() {
 
   const alterarStatus = (id: string) => {
     const novasIdeias = ideias.map(i => {
-      if (i.id === id) {
-        return { ...i, status: PROXIMO_STATUS[i.status] };
-      }
+      if (i.id === id) return { ...i, status: PROXIMO_STATUS[i.status] };
       return i;
     });
     salvarNoLocalStorage(novasIdeias);
@@ -101,14 +99,36 @@ export default function Calendario() {
   const moverIdeia = (id: string) => {
     if (!novaData) return;
     const novasIdeias = ideias.map(i => {
-      if (i.id === id) {
-        return { ...i, data: novaData };
-      }
+      if (i.id === id) return { ...i, data: novaData };
       return i;
     });
     salvarNoLocalStorage(novasIdeias);
     setIdeiaParaMover(null);
     setNovaData('');
+  };
+
+  // Drag handlers
+  const onDragStart = (e: React.DragEvent, id: string) => {
+    setArrastando(id);
+    e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const onDrop = (e: React.DragEvent, novaData: string) => {
+    e.preventDefault();
+    const id = e.dataTransfer.getData('text/plain');
+    if (!id) return;
+    const novasIdeias = ideias.map(i => {
+      if (i.id === id) return { ...i, data: novaData };
+      return i;
+    });
+    salvarNoLocalStorage(novasIdeias);
+    setArrastando(null);
   };
 
   const diasNoMes = new Date(anoAtual, mesAtual + 1, 0).getDate();
@@ -137,14 +157,13 @@ export default function Calendario() {
   return (
     <div className="min-h-screen bg-gray-950 text-white py-20 px-4">
       <div className="max-w-4xl mx-auto">
-        {/* Mensagem de boas-vindas */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold flex items-center justify-center gap-2 mb-2">
             <Sparkles className="w-6 h-6 text-purple-400" />
             Calendário Editorial
           </h1>
           <p className="text-gray-400 text-sm">
-            📅 Clique em qualquer dia para ver suas ideias ou adicionar uma nova.
+            📅 Arraste ideias entre os dias ou clique para ver detalhes.
           </p>
         </div>
 
@@ -169,26 +188,41 @@ export default function Calendario() {
           {Array.from({ length: diasNoMes }).map((_, i) => {
             const dia = i + 1;
             const data = `${anoAtual}-${String(mesAtual + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
-            const ideiasDoDiaCount = ideias.filter(ideia => ideia.data === data).length;
+            const ideiasDoDiaList = ideias.filter(ideia => ideia.data === data);
             const isHoje = data === new Date().toISOString().split('T')[0];
             return (
-              <button
+              <div
                 key={dia}
                 onClick={() => abrirDia(data)}
+                onDragOver={onDragOver}
+                onDrop={(e) => onDrop(e, data)}
                 className={`min-h-[80px] p-1 rounded-lg border transition text-left ${
                   isHoje ? 'bg-purple-500/10 border-purple-400/50' : 'bg-white/5 border-white/10 hover:bg-white/10'
-                }`}
+                } ${arrastando ? 'border-dashed border-purple-400/50' : ''}`}
               >
                 <div className="text-right text-xs text-gray-400 mb-1">{dia}</div>
-                {ideiasDoDiaCount > 0 && (
-                  <div className="text-[10px] bg-purple-500/20 text-purple-300 rounded px-1 py-0.5 text-center">
-                    {ideiasDoDiaCount} ideia{ideiasDoDiaCount > 1 ? 's' : ''}
-                  </div>
+                {ideiasDoDiaList.slice(0, 2).map((ideia) => {
+                  const statusConfig = STATUS_CONFIG[ideia.status];
+                  return (
+                    <div
+                      key={ideia.id}
+                      draggable
+                      onDragStart={(e) => onDragStart(e, ideia.id)}
+                      onClick={(e) => { e.stopPropagation(); abrirDia(data); }}
+                      className={`text-[10px] rounded px-1 py-0.5 mb-0.5 cursor-grab active:cursor-grabbing truncate ${statusConfig.cor} flex items-center gap-1`}
+                    >
+                      <GripVertical className="w-2.5 h-2.5 flex-shrink-0" />
+                      <span className="truncate">{ideia.titulo}</span>
+                    </div>
+                  );
+                })}
+                {ideiasDoDiaList.length > 2 && (
+                  <div className="text-[10px] text-gray-500 text-center">+{ideiasDoDiaList.length - 2} mais</div>
                 )}
                 <div className="text-center text-gray-600 hover:text-purple-400 mt-1">
-                  <Plus className="w-4 h-4 mx-auto" />
+                  <Plus className="w-3 h-3 mx-auto" />
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
@@ -218,7 +252,6 @@ export default function Calendario() {
                     return (
                       <div key={ideia.id} className="bg-white/5 border border-white/10 rounded-xl p-4 relative space-y-3">
                         <div className="absolute top-2 right-2 flex gap-1">
-                          {/* Botão Mover */}
                           <button
                             onClick={() => {
                               setIdeiaParaMover(ideia.id);
@@ -237,14 +270,17 @@ export default function Calendario() {
                           </button>
                         </div>
 
-                        {/* Status */}
-                        <button
-                          onClick={() => alterarStatus(ideia.id)}
-                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold ${statusConfig.cor}`}
-                        >
-                          {statusConfig.icone}
-                          {statusConfig.label}
-                        </button>
+                        {/* Status melhorado */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Status:</span>
+                          <button
+                            onClick={() => alterarStatus(ideia.id)}
+                            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold ${statusConfig.cor}`}
+                          >
+                            {statusConfig.icone}
+                            {statusConfig.label}
+                          </button>
+                        </div>
 
                         {/* Título */}
                         <div className="flex items-start gap-2">
@@ -310,12 +346,11 @@ export default function Calendario() {
                           </div>
                         )}
 
-                        {/* Plataforma */}
                         {ideia.plataforma && ideia.plataforma !== 'manual' && (
                           <p className="text-[10px] text-purple-400/60">Gerado para: {ideia.plataforma}</p>
                         )}
 
-                        {/* Modal de mover (mini) */}
+                        {/* Mini modal de mover */}
                         {ideiaParaMover === ideia.id && (
                           <div className="bg-gray-800 border border-gray-600 rounded-xl p-3 mt-2">
                             <p className="text-xs text-gray-400 mb-2">Mover para:</p>
@@ -326,19 +361,8 @@ export default function Calendario() {
                               className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-purple-500/50"
                             />
                             <div className="flex gap-2 mt-2">
-                              <button
-                                onClick={() => setIdeiaParaMover(null)}
-                                className="flex-1 py-2 rounded-lg bg-white/5 text-gray-400 text-xs hover:bg-white/10 transition"
-                              >
-                                Cancelar
-                              </button>
-                              <button
-                                onClick={() => moverIdeia(ideia.id)}
-                                disabled={!novaData}
-                                className="flex-1 py-2 rounded-lg bg-purple-500/20 text-purple-400 text-xs font-bold hover:bg-purple-500/30 transition disabled:opacity-50"
-                              >
-                                Mover
-                              </button>
+                              <button onClick={() => setIdeiaParaMover(null)} className="flex-1 py-2 rounded-lg bg-white/5 text-gray-400 text-xs hover:bg-white/10 transition">Cancelar</button>
+                              <button onClick={() => moverIdeia(ideia.id)} disabled={!novaData} className="flex-1 py-2 rounded-lg bg-purple-500/20 text-purple-400 text-xs font-bold hover:bg-purple-500/30 transition disabled:opacity-50">Mover</button>
                             </div>
                           </div>
                         )}
@@ -346,58 +370,20 @@ export default function Calendario() {
                     );
                   })}
                 </div>
-                <button
-                  onClick={() => setModoAdicao(true)}
-                  className="w-full py-3 rounded-xl bg-purple-500/20 text-purple-400 font-bold hover:bg-purple-500/30 transition flex items-center justify-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Nova ideia
+                <button onClick={() => setModoAdicao(true)} className="w-full py-3 rounded-xl bg-purple-500/20 text-purple-400 font-bold hover:bg-purple-500/30 transition flex items-center justify-center gap-2">
+                  <Plus className="w-4 h-4" /> Nova ideia
                 </button>
               </>
             ) : (
               <>
                 <div className="space-y-3">
-                  <input
-                    type="text"
-                    placeholder="Título da ideia"
-                    value={novoTitulo}
-                    onChange={(e) => setNovoTitulo(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 outline-none focus:border-purple-500/50"
-                  />
-                  <textarea
-                    placeholder="Descrição (opcional)"
-                    value={novaDescricao}
-                    onChange={(e) => setNovaDescricao(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 outline-none focus:border-purple-500/50 resize-none h-20"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Hashtags (opcional, ex: #tag1 #tag2)"
-                    value={novasHashtags}
-                    onChange={(e) => setNovasHashtags(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 outline-none focus:border-purple-500/50"
-                  />
-                  <textarea
-                    placeholder="Anotação pessoal (opcional)"
-                    value={novaAnotacao}
-                    onChange={(e) => setNovaAnotacao(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 outline-none focus:border-purple-500/50 resize-none h-20"
-                  />
+                  <input type="text" placeholder="Título da ideia" value={novoTitulo} onChange={(e) => setNovoTitulo(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 outline-none focus:border-purple-500/50" />
+                  <textarea placeholder="Descrição (opcional)" value={novaDescricao} onChange={(e) => setNovaDescricao(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 outline-none focus:border-purple-500/50 resize-none h-20" />
+                  <input type="text" placeholder="Hashtags (opcional, ex: #tag1 #tag2)" value={novasHashtags} onChange={(e) => setNovasHashtags(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 outline-none focus:border-purple-500/50" />
+                  <textarea placeholder="Anotação pessoal (opcional)" value={novaAnotacao} onChange={(e) => setNovaAnotacao(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 outline-none focus:border-purple-500/50 resize-none h-20" />
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => setModoAdicao(false)}
-                      className="flex-1 py-3 rounded-xl bg-white/5 text-gray-400 font-bold hover:bg-white/10 transition"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      onClick={adicionarIdeiaManual}
-                      disabled={!novoTitulo.trim()}
-                      className="flex-1 py-3 rounded-xl bg-purple-500/20 text-purple-400 font-bold hover:bg-purple-500/30 transition disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      <Save className="w-4 h-4" />
-                      Salvar
-                    </button>
+                    <button onClick={() => setModoAdicao(false)} className="flex-1 py-3 rounded-xl bg-white/5 text-gray-400 font-bold hover:bg-white/10 transition">Cancelar</button>
+                    <button onClick={adicionarIdeiaManual} disabled={!novoTitulo.trim()} className="flex-1 py-3 rounded-xl bg-purple-500/20 text-purple-400 font-bold hover:bg-purple-500/30 transition disabled:opacity-50 flex items-center justify-center gap-2"><Save className="w-4 h-4" /> Salvar</button>
                   </div>
                 </div>
               </>
@@ -407,4 +393,4 @@ export default function Calendario() {
       )}
     </div>
   );
-                }
+}
