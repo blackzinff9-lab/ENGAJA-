@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TrendingUp, Search, BarChart3, Smartphone, Play, Video, Info } from 'lucide-react';
+import { TrendingUp, Search, Smartphone, Play, Video, Info, ExternalLink } from 'lucide-react';
 
 type PlataformaTendencia = 'tiktok' | 'instagram' | 'youtube';
 
@@ -9,16 +9,17 @@ const PLATAFORMAS = [
   { id: 'youtube' as PlataformaTendencia, nome: 'YouTube', icone: Video },
 ];
 
-interface Trend {
-  date: string;
-  value: number;
+interface VideoTendencia {
+  titulo: string;
+  data: string;
+  posicao: number;
 }
 
 export default function Tendencias() {
-  const [tendencias, setTendencias] = useState<Trend[]>([]);
+  const [videos, setVideos] = useState<VideoTendencia[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [termo, setTermo] = useState('');
-  const [plataforma, setPlataforma] = useState<PlataformaTendencia>('tiktok');
+  const [plataforma, setPlataforma] = useState<PlataformaTendencia>('youtube');
   const [erro, setErro] = useState('');
 
   const buscarTendencias = async () => {
@@ -36,19 +37,26 @@ export default function Tendencias() {
 
       if (!resposta.ok) {
         setErro(dados.detail || dados.mensagem || 'Erro ao buscar tendências.');
-        setTendencias([]);
+        setVideos([]);
         return;
       }
 
-      if (dados.tendencias && dados.tendencias.length > 0) {
-        setTendencias(dados.tendencias);
+      if (dados.videos && dados.videos.length > 0) {
+        setVideos(dados.videos);
+      } else if (dados.tendencias && dados.tendencias.length > 0) {
+        // Formato antigo compatível
+        setVideos(dados.tendencias.map((t: any) => ({
+          titulo: t.titulo || t.date || '',
+          data: t.date || '',
+          posicao: t.value || 0
+        })));
       } else {
-        setTendencias([]);
+        setVideos([]);
         setErro(dados.mensagem || 'Nenhum dado encontrado para este termo.');
       }
     } catch (e) {
       setErro('Falha na conexão com o servidor.');
-      setTendencias([]);
+      setVideos([]);
     } finally {
       setCarregando(false);
     }
@@ -62,7 +70,7 @@ export default function Tendencias() {
           Tendências em Tempo Real
         </h1>
         <p className="text-gray-400 text-sm mb-6">
-          Veja a popularidade de termos no YouTube. TikTok e Instagram em breve.
+          Veja os vídeos em alta no YouTube. TikTok e Instagram em breve.
         </p>
 
         <div className="grid grid-cols-3 gap-3 mb-6">
@@ -90,7 +98,7 @@ export default function Tendencias() {
             value={termo}
             onChange={(e) => setTermo(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && buscarTendencias()}
-            placeholder={`Buscar tendências no ${PLATAFORMAS.find(p => p.id === plataforma)?.nome}...`}
+            placeholder={`Buscar tendências no YouTube...`}
             className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 outline-none focus:border-purple-500/50"
           />
           <button
@@ -113,33 +121,32 @@ export default function Tendencias() {
           </div>
         )}
 
-        {tendencias.length > 0 && (
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+        {videos.length > 0 && (
+          <div className="space-y-2">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-purple-400" />
-              Popularidade — "{termo}" no {PLATAFORMAS.find(p => p.id === plataforma)?.nome}
+              <TrendingUp className="w-5 h-5 text-purple-400" />
+              Vídeos em alta: "{termo}"
             </h2>
-            <div className="flex items-end gap-2 h-40">
-              {tendencias.map((ponto, idx) => {
-                const altura = Math.max(4, (ponto.value / 100) * 100);
-                return (
-                  <div key={idx} className="flex-1 flex flex-col items-center">
-                    <div
-                      className="w-full bg-gradient-to-t from-purple-500/40 to-purple-400 rounded-t"
-                      style={{ height: `${altura}%` }}
-                    ></div>
-                    <span className="text-[10px] text-gray-400 mt-1 rotate-45 origin-left whitespace-nowrap">
-                      {ponto.date}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+            {videos.map((video, idx) => (
+              <div
+                key={idx}
+                className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-start gap-3 hover:bg-white/10 transition"
+              >
+                <div className="flex-shrink-0 w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center text-purple-400 font-bold text-sm">
+                  {idx + 1}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-medium truncate">{video.titulo}</p>
+                  <p className="text-gray-500 text-xs mt-1">{video.data}</p>
+                </div>
+                <ExternalLink className="w-4 h-4 text-gray-500 flex-shrink-0 mt-1" />
+              </div>
+            ))}
           </div>
         )}
 
         <p className="text-gray-500 text-xs mt-6 text-center">
-          Dados fornecidos pela API oficial do YouTube. TikTok e Instagram em breve.
+          Dados fornecidos pela API oficial do YouTube.
         </p>
       </div>
     </div>
