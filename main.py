@@ -59,6 +59,10 @@ class RequisicaoSequencia(BaseModel):
     plataforma: str
     idioma: str = "pt"
 
+class RequisicaoTendencia(BaseModel):
+    termo: str
+    plataforma: str
+
 # ========== GOOGLE OAUTH ==========
 @app.get("/api/auth/google/login")
 async def google_login(request: Request):
@@ -238,6 +242,47 @@ def pesquisar_trendsmcp(tema: str, plataforma: str) -> str:
     except Exception as e:
         print(f"[Trends MCP] Erro: {e}")
         return ""
+
+# ========== ENDPOINT DE TENDÊNCIAS (PROXY SEGURO) ==========
+
+@app.post("/api/tendencias")
+async def buscar_tendencias(req: RequisicaoTendencia):
+    if not req.termo.strip():
+        raise HTTPException(400, detail="Termo não pode estar vazio")
+    if not TRENDSMCP_API_KEY:
+        raise HTTPException(500, detail="Chave do Trends MCP não configurada no servidor")
+
+    fonte = "tiktok" if req.plataforma == "tiktok" else "google trends"
+    try:
+        resp = requests.post(
+            "https://api.trendsmcp.ai/api",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {TRENDSMCP_API_KEY}"
+            },
+            json={"source": fonte, "keyword": req.termo},
+            timeout=10
+        )
+        if not resp.ok:
+            raise HTTPException(502, detail="Erro ao consultar o Trends MCP")
+
+        dados = resp.json()
+        corpo = dados.get("body", [])
+        if isinstance(corpo, str):
+            corpo = json.loads(corpo)
+        if not isinstance(corpo, list) or len(corpo) == 0:
+            return {"tendencias": []}
+
+        ultimos = corpo[-7:]
+        resultado = [
+            {"date": p.get("date", ""), "value": int(p.get("value", 0))}
+            for p in ultimos
+        ]
+        return {"tendencias": resultado}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, detail=f"Erro interno: {str(e)}")
 
 # ========== CONTROLE DE LIMITES ==========
 async def get_plano(user_id: str) -> str:
