@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Sparkles, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sparkles, X, Plus, Trash2, Save } from 'lucide-react';
 
 interface IdeiaCalendario {
   id: string;
@@ -19,11 +19,51 @@ export default function Calendario() {
   const [anoAtual, setAnoAtual] = useState(new Date().getFullYear());
   const [diaSelecionado, setDiaSelecionado] = useState<string | null>(null);
   const [modalAberto, setModalAberto] = useState(false);
+  const [modoAdicao, setModoAdicao] = useState(false); // true = formulário de nova ideia
+
+  // Campos do formulário manual
+  const [novoTitulo, setNovoTitulo] = useState('');
+  const [novaDescricao, setNovaDescricao] = useState('');
+  const [novasHashtags, setNovasHashtags] = useState('');
+  const [novaAnotacao, setNovaAnotacao] = useState('');
 
   useEffect(() => {
     const salvas = JSON.parse(localStorage.getItem('engajai_calendario') || '[]');
     setIdeias(salvas);
   }, []);
+
+  const salvarNoLocalStorage = (novasIdeias: IdeiaCalendario[]) => {
+    localStorage.setItem('engajai_calendario', JSON.stringify(novasIdeias));
+    setIdeias(novasIdeias);
+  };
+
+  const adicionarIdeiaManual = () => {
+    if (!novoTitulo.trim() || !diaSelecionado) return;
+    const nova: IdeiaCalendario = {
+      id: Date.now().toString(),
+      titulo: novoTitulo,
+      descricao: novaDescricao,
+      hashtags: novasHashtags,
+      roteiro: '',
+      ideiaEdicao: '',
+      data: diaSelecionado,
+      anotacao: novaAnotacao,
+      plataforma: 'manual',
+    };
+    const novasIdeias = [...ideias, nova];
+    salvarNoLocalStorage(novasIdeias);
+    // limpar formulário
+    setNovoTitulo('');
+    setNovaDescricao('');
+    setNovasHashtags('');
+    setNovaAnotacao('');
+    setModoAdicao(false);
+  };
+
+  const excluirIdeia = (id: string) => {
+    const novasIdeias = ideias.filter(i => i.id !== id);
+    salvarNoLocalStorage(novasIdeias);
+  };
 
   const diasNoMes = new Date(anoAtual, mesAtual + 1, 0).getDate();
   const primeiroDia = new Date(anoAtual, mesAtual, 1).getDay();
@@ -39,6 +79,7 @@ export default function Calendario() {
 
   const abrirDia = (data: string) => {
     setDiaSelecionado(data);
+    setModoAdicao(false); // começa mostrando as ideias
     setModalAberto(true);
   };
 
@@ -50,14 +91,22 @@ export default function Calendario() {
   return (
     <div className="min-h-screen bg-gray-950 text-white py-20 px-4">
       <div className="max-w-4xl mx-auto">
+        {/* Mensagem de boas-vindas */}
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold flex items-center justify-center gap-2 mb-2">
+            <Sparkles className="w-6 h-6 text-purple-400" />
+            Calendário Editorial
+          </h1>
+          <p className="text-gray-400 text-sm">
+            📅 Clique em qualquer dia para ver suas ideias ou adicionar uma nova.
+          </p>
+        </div>
+
         <div className="flex items-center justify-between mb-6">
           <button onClick={() => mudarMes(-1)} className="text-2xl px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition">
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-purple-400" />
-            {meses[mesAtual]} {anoAtual}
-          </h1>
+          <span className="text-xl font-semibold">{meses[mesAtual]} {anoAtual}</span>
           <button onClick={() => mudarMes(1)} className="text-2xl px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition">
             <ChevronRight className="w-5 h-5" />
           </button>
@@ -90,13 +139,16 @@ export default function Calendario() {
                     {ideiasDoDiaCount} ideia{ideiasDoDiaCount > 1 ? 's' : ''}
                   </div>
                 )}
+                <div className="text-center text-gray-600 hover:text-purple-400 mt-1">
+                  <Plus className="w-4 h-4 mx-auto" />
+                </div>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Modal de visualização das ideias do dia */}
+      {/* Modal de visualização / adição */}
       {modalAberto && diaSelecionado && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto p-5 animate-fade-in">
@@ -109,31 +161,96 @@ export default function Calendario() {
               </button>
             </div>
 
-            {ideiasDoDia.length === 0 ? (
-              <p className="text-gray-400 text-sm">Nenhuma ideia salva para este dia.</p>
+            {!modoAdicao ? (
+              <>
+                {/* Lista de ideias existentes */}
+                {ideiasDoDia.length === 0 && (
+                  <p className="text-gray-400 text-sm mb-4">Nenhuma ideia para este dia.</p>
+                )}
+                <div className="space-y-3 mb-4">
+                  {ideiasDoDia.map((ideia) => (
+                    <div key={ideia.id} className="bg-white/5 border border-white/10 rounded-xl p-3 relative">
+                      <button
+                        onClick={() => excluirIdeia(ideia.id)}
+                        className="absolute top-2 right-2 text-gray-500 hover:text-red-400 transition"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      <h3 className="text-white font-bold">{ideia.titulo}</h3>
+                      {ideia.plataforma && <p className="text-xs text-purple-400">{ideia.plataforma}</p>}
+                      {ideia.descricao && <p className="text-gray-300 text-sm mt-1">{ideia.descricao}</p>}
+                      {ideia.hashtags && <p className="text-emerald-400 text-sm mt-1">{ideia.hashtags}</p>}
+                      {ideia.roteiro && <p className="text-gray-400 text-sm mt-1 whitespace-pre-line">{ideia.roteiro}</p>}
+                      {ideia.ideiaEdicao && <p className="text-gray-400 text-sm mt-1">{ideia.ideiaEdicao}</p>}
+                      {ideia.anotacao && (
+                        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2 mt-2">
+                          <p className="text-yellow-400 text-xs font-bold">📝 Anotação</p>
+                          <p className="text-gray-300 text-xs">{ideia.anotacao}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setModoAdicao(true)}
+                  className="w-full py-3 rounded-xl bg-purple-500/20 text-purple-400 font-bold hover:bg-purple-500/30 transition flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Nova ideia
+                </button>
+              </>
             ) : (
-              <div className="space-y-4">
-                {ideiasDoDia.map((ideia, idx) => (
-                  <div key={idx} className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-2">
-                    <h3 className="text-white font-bold text-lg">{ideia.titulo}</h3>
-                    {ideia.plataforma && <p className="text-xs text-purple-400">{ideia.plataforma}</p>}
-                    {ideia.descricao && <p className="text-gray-300 text-sm">{ideia.descricao}</p>}
-                    {ideia.hashtags && <p className="text-emerald-400 text-sm">{ideia.hashtags}</p>}
-                    {ideia.roteiro && <p className="text-gray-400 text-sm whitespace-pre-line mt-2">{ideia.roteiro}</p>}
-                    {ideia.ideiaEdicao && <p className="text-gray-400 text-sm mt-2">{ideia.ideiaEdicao}</p>}
-                    {ideia.anotacao && (
-                      <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2 mt-2">
-                        <p className="text-yellow-400 text-xs font-bold mb-1">📝 Anotação</p>
-                        <p className="text-gray-300 text-xs">{ideia.anotacao}</p>
-                      </div>
-                    )}
+              <>
+                {/* Formulário de nova ideia manual */}
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder="Título da ideia"
+                    value={novoTitulo}
+                    onChange={(e) => setNovoTitulo(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 outline-none focus:border-purple-500/50"
+                  />
+                  <textarea
+                    placeholder="Descrição (opcional)"
+                    value={novaDescricao}
+                    onChange={(e) => setNovaDescricao(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 outline-none focus:border-purple-500/50 resize-none h-20"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Hashtags (opcional, ex: #tag1 #tag2)"
+                    value={novasHashtags}
+                    onChange={(e) => setNovasHashtags(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 outline-none focus:border-purple-500/50"
+                  />
+                  <textarea
+                    placeholder="Anotação pessoal (opcional)"
+                    value={novaAnotacao}
+                    onChange={(e) => setNovaAnotacao(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 outline-none focus:border-purple-500/50 resize-none h-20"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setModoAdicao(false)}
+                      className="flex-1 py-3 rounded-xl bg-white/5 text-gray-400 font-bold hover:bg-white/10 transition"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={adicionarIdeiaManual}
+                      disabled={!novoTitulo.trim()}
+                      className="flex-1 py-3 rounded-xl bg-purple-500/20 text-purple-400 font-bold hover:bg-purple-500/30 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      <Save className="w-4 h-4" />
+                      Salvar
+                    </button>
                   </div>
-                ))}
-              </div>
+                </div>
+              </>
             )}
           </div>
         </div>
       )}
     </div>
   );
-                    }
+                }
