@@ -207,7 +207,7 @@ def chamar_groq(prompt: str, max_tokens: int = 500) -> str:
 def pesquisar_youtube(tema: str) -> str:
     if not YOUTUBE_API_KEY: return ""
     try:
-        url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&q={urllib.parse.quote(tema)}&type=video&order=viewCount&maxResults=3&relevanceLanguage=pt&key={YOUTUBE_API_KEY}"
+        url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&q={urllib.parse.quote(tema)}&type=video&order=viewCount&maxResults=5&relevanceLanguage=pt&key={YOUTUBE_API_KEY}"
         resp = requests.get(url, timeout=10)
         if not resp.ok: return ""
         videos = resp.json().get("items", [])
@@ -243,7 +243,7 @@ def pesquisar_trendsmcp(tema: str, plataforma: str) -> str:
         print(f"[Trends MCP] Erro: {e}")
         return ""
 
-# ========== ENDPOINT DE TENDÊNCIAS (VÍDEOS RECENTES DO YOUTUBE) ==========
+# ========== ENDPOINT DE TENDÊNCIAS (15 VÍDEOS RECENTES DO YOUTUBE) ==========
 
 @app.post("/api/tendencias")
 async def buscar_tendencias(req: RequisicaoTendencia):
@@ -251,24 +251,21 @@ async def buscar_tendencias(req: RequisicaoTendencia):
     if not termo:
         raise HTTPException(400, detail="Termo não pode estar vazio")
 
-    # TikTok e Instagram: mensagem amigável
     if req.plataforma in ("tiktok", "instagram"):
         return {
             "videos": [],
             "mensagem": f"Dados de tendências para {req.plataforma.capitalize()} estarão disponíveis em breve. Por enquanto, experimente buscar no YouTube."
         }
 
-    # YouTube: API oficial com vídeos recentes
     if req.plataforma == "youtube":
         if not YOUTUBE_API_KEY:
             raise HTTPException(500, detail="Chave da API do YouTube não configurada")
         try:
-            # Data de 6 meses atrás no formato ISO 8601
             seis_meses_atras = (datetime.now(timezone.utc) - timedelta(days=180)).strftime("%Y-%m-%dT%H:%M:%SZ")
             url = (
                 f"https://www.googleapis.com/youtube/v3/search"
                 f"?part=snippet&q={urllib.parse.quote(termo)}"
-                f"&type=video&order=date&maxResults=7"
+                f"&type=video&order=date&maxResults=15"
                 f"&publishedAfter={seis_meses_atras}"
                 f"&relevanceLanguage=pt&key={YOUTUBE_API_KEY}"
             )
@@ -439,7 +436,7 @@ Responda em {idioma}. APENAS o JSON, sem markdown."""
     }
 
 # ==========================================
-# ENDPOINT DE SEQUÊNCIA DE 10 IDEIAS
+# ENDPOINT DE SEQUÊNCIA DE 10 IDEIAS (MAX TOKENS 3000 + TENDÊNCIAS REAIS)
 # ==========================================
 
 @app.post("/api/gerar-sequencia")
@@ -452,15 +449,44 @@ async def gerar_sequencia(req: RequisicaoSequencia, request: Request):
 
     idioma = req.idioma if req.idioma in ("pt", "en") else "pt"
     nome_plataforma = {"tiktok": "TikTok", "instagram": "Instagram", "youtube": "YouTube"}[req.plataforma]
-    prompt = f"""Gere 10 ideias de títulos e descrições curtas para série de {nome_plataforma}: "{req.tema}"
-Responda JSON: "ideias" (array com "titulo" e "temaCurto"). Em {idioma}."""
-    resposta = chamar_groq(prompt, max_tokens=1000)
+
+    # Buscar tendências reais para enriquecer o prompt
+    dados_tendencias = ""
+    dados_mcp = pesquisar_trendsmcp(req.tema, req.plataforma)
+    if dados_mcp:
+        dados_tendencias += f"[Trends MCP]\n{dados_mcp}\n\n"
+    if req.plataforma == "youtube":
+        dados_yt = pesquisar_youtube(req.tema)
+        if dados_yt:
+            dados_tendencias += f"[YouTube]\n{dados_yt}\n"
+    if not dados_tendencias:
+        dados_tendencias = "Nenhum dado externo disponível."
+
+    prompt = f"""Você é um(a) estrategista de conteúdo digital sênior especializado(a) em {nome_plataforma}.
+Um criador de conteúdo está planejando uma série de vídeos sobre o tema: "{req.tema}".
+
+DADOS DE TENDÊNCIAS REAIS (use como inspiração obrigatória):
+{dados_tendencias}
+
+Sua tarefa é gerar EXATAMENTE 10 ideias de vídeos para esta série. As ideias devem ser:
+- DIVERSIFICADAS: cada vídeo deve abordar um ângulo diferente do tema (tutorial, opinião, curiosidades, erros comuns, ferramentas, casos de sucesso, tendências atuais, desafios, comparações, listas, etc.).
+- COESAS: todas devem se interligar ao tema central, formando uma série lógica e progressiva.
+- OTIMIZADAS PARA SEO E ALGORITMO: cada título deve ser chamativo, usar palavras-chave relevantes do tema e das tendências fornecidas, e ter no máximo 80 caracteres.
+- INFORMATIVAS: a descrição (temaCurto) deve deixar claro o valor do vídeo, incluindo ganchos e palavras-chave, em até 100 caracteres.
+- BASEADAS EM DADOS REAIS: utilize as tendências fornecidas para sugerir tópicos que estão em alta e têm maior probabilidade de engajamento.
+
+Responda APENAS com um JSON válido no seguinte formato:
+{{"ideias": [{{"titulo": "Título do vídeo 1", "temaCurto": "Breve descrição do vídeo 1"}}, ...]}}
+
+Responda em {idioma}. Não use markdown, APENAS o JSON."""
+    
+    resposta = chamar_groq(prompt, max_tokens=3000)
     dados = limpar_json(resposta)
     ideias = dados.get("ideias", [])
     if not isinstance(ideias, list) or len(ideias) == 0:
-        ideias = [{"titulo": f"{req.tema} - Parte {i+1}", "temaCurto": "Continuação"} for i in range(10)]
+        ideias = [{"titulo": f"{req.tema} - Parte {i+1}", "temaCurto": f"Continuação aprofundada de {req.tema}"} for i in range(10)]
     while len(ideias) < 10:
-        ideias.append({"titulo": f"{req.tema} - Extra", "temaCurto": "Mais sobre o tema"})
+        ideias.append({"titulo": f"{req.tema} - Extra {len(ideias)+1}", "temaCurto": f"Mais sobre {req.tema}"})
 
     await registrar_uso(user_id, "sequencia")
     return {"ideias": ideias[:10], "temaOriginal": req.tema, "plataforma": req.plataforma}
