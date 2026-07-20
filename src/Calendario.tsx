@@ -1,17 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sparkles, X } from 'lucide-react';
 
 interface IdeiaCalendario {
   id: string;
   titulo: string;
+  descricao?: string;
+  hashtags?: string;
+  roteiro?: string;
+  ideiaEdicao?: string;
   data: string;
   anotacao?: string;
+  plataforma?: string;
 }
 
 export default function Calendario() {
   const [ideias, setIdeias] = useState<IdeiaCalendario[]>([]);
   const [mesAtual, setMesAtual] = useState(new Date().getMonth());
   const [anoAtual, setAnoAtual] = useState(new Date().getFullYear());
+  const [diaSelecionado, setDiaSelecionado] = useState<string | null>(null);
+  const [modalAberto, setModalAberto] = useState(false);
 
   useEffect(() => {
     const salvas = JSON.parse(localStorage.getItem('engajai_calendario') || '[]');
@@ -29,6 +36,13 @@ export default function Calendario() {
     setMesAtual(novoMes);
     setAnoAtual(novoAno);
   };
+
+  const abrirDia = (data: string) => {
+    setDiaSelecionado(data);
+    setModalAberto(true);
+  };
+
+  const ideiasDoDia = diaSelecionado ? ideias.filter(ideia => ideia.data === diaSelecionado) : [];
 
   const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
   const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -60,29 +74,76 @@ export default function Calendario() {
           {Array.from({ length: diasNoMes }).map((_, i) => {
             const dia = i + 1;
             const data = `${anoAtual}-${String(mesAtual + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
-            const ideiasDoDia = ideias.filter(ideia => ideia.data === data);
+            const ideiasDoDiaCount = ideias.filter(ideia => ideia.data === data).length;
             const isHoje = data === new Date().toISOString().split('T')[0];
             return (
-              <div
+              <button
                 key={dia}
-                className={`min-h-[80px] p-1 rounded-lg border transition ${
-                  isHoje ? 'bg-purple-500/10 border-purple-400/50' : 'bg-white/5 border-white/10'
+                onClick={() => abrirDia(data)}
+                className={`min-h-[80px] p-1 rounded-lg border transition text-left ${
+                  isHoje ? 'bg-purple-500/10 border-purple-400/50' : 'bg-white/5 border-white/10 hover:bg-white/10'
                 }`}
               >
                 <div className="text-right text-xs text-gray-400 mb-1">{dia}</div>
-                {ideiasDoDia.slice(0, 3).map((ideia, idx) => (
-                  <div key={idx} className="text-[10px] bg-purple-500/20 text-purple-300 rounded px-1 py-0.5 truncate mb-0.5" title={ideia.anotacao || ''}>
-                    {ideia.titulo}
+                {ideiasDoDiaCount > 0 && (
+                  <div className="text-[10px] bg-purple-500/20 text-purple-300 rounded px-1 py-0.5 text-center">
+                    {ideiasDoDiaCount} ideia{ideiasDoDiaCount > 1 ? 's' : ''}
                   </div>
-                ))}
-                {ideiasDoDia.length > 3 && (
-                  <div className="text-[10px] text-gray-500 text-center">+{ideiasDoDia.length - 3} mais</div>
                 )}
-              </div>
+              </button>
             );
           })}
         </div>
       </div>
+
+      {/* Modal de visualização das ideias do dia */}
+      {modalAberto && diaSelecionado && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto p-5 animate-fade-in">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-white">
+                {diaSelecionado.split('-').reverse().join('/')}
+              </h2>
+              <button onClick={() => setModalAberto(false)} className="text-gray-400 hover:text-white transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {ideiasDoDia.length === 0 ? (
+              <p className="text-gray-400 text-sm">Nenhuma ideia salva para este dia.</p>
+            ) : (
+              <div className="space-y-4">
+                {ideiasDoDia.map((ideia, idx) => (
+                  <div key={idx} className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-2">
+                    <h3 className="text-white font-bold text-lg">{ideia.titulo}</h3>
+                    {ideia.plataforma && <p className="text-xs text-purple-400">{ideia.plataforma}</p>}
+                    {ideia.descricao && <p className="text-gray-300 text-sm">{ideia.descricao}</p>}
+                    {ideia.hashtags && <p className="text-emerald-400 text-sm">{ideia.hashtags}</p>}
+                    {ideia.roteiro && (
+                      <details className="text-gray-400 text-sm">
+                        <summary className="cursor-pointer text-purple-400">Ver roteiro</summary>
+                        <p className="mt-2 whitespace-pre-line">{ideia.roteiro}</p>
+                      </details>
+                    )}
+                    {ideia.ideiaEdicao && (
+                      <details className="text-gray-400 text-sm">
+                        <summary className="cursor-pointer text-purple-400">Ver ideia de edição</summary>
+                        <p className="mt-2">{ideia.ideiaEdicao}</p>
+                      </details>
+                    )}
+                    {ideia.anotacao && (
+                      <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2 mt-2">
+                        <p className="text-yellow-400 text-xs font-bold mb-1">📝 Anotação</p>
+                        <p className="text-gray-300 text-xs">{ideia.anotacao}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
-                  }
+}
