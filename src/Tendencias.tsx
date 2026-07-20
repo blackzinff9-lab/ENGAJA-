@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TrendingUp, Search, BarChart3, Smartphone, Play, Video } from 'lucide-react';
+import { TrendingUp, Search, BarChart3, Smartphone, Play, Video, Info } from 'lucide-react';
 
 type PlataformaTendencia = 'tiktok' | 'instagram' | 'youtube';
 
@@ -20,14 +20,11 @@ export default function Tendencias() {
   const [termo, setTermo] = useState('');
   const [plataforma, setPlataforma] = useState<PlataformaTendencia>('tiktok');
   const [erro, setErro] = useState('');
-  const [respostaBruta, setRespostaBruta] = useState('');
 
   const buscarTendencias = async () => {
     if (!termo.trim()) return;
     setCarregando(true);
     setErro('');
-    setRespostaBruta('');
-    setTendencias([]);
     try {
       const resposta = await fetch('/api/tendencias', {
         method: 'POST',
@@ -35,50 +32,23 @@ export default function Tendencias() {
         body: JSON.stringify({ termo, plataforma })
       });
 
+      const dados = await resposta.json();
+
       if (!resposta.ok) {
-        const erroData = await resposta.json();
-        setErro(erroData.detail || 'Erro ao buscar tendências.');
+        setErro(dados.detail || dados.mensagem || 'Erro ao buscar tendências.');
+        setTendencias([]);
         return;
       }
 
-      const dados = await resposta.json();
-      console.log('Resposta da API:', dados);
-      setRespostaBruta(JSON.stringify(dados, null, 2));
-
-      // Tenta extrair o array de tendências de várias formas possíveis
-      let tendenciasArray: Trend[] = [];
-
-      if (Array.isArray(dados.tendencias)) {
-        tendenciasArray = dados.tendencias;
-      } else if (Array.isArray(dados)) {
-        tendenciasArray = dados;
-      } else if (Array.isArray(dados.data)) {
-        tendenciasArray = dados.data;
-      } else if (Array.isArray(dados.results)) {
-        tendenciasArray = dados.results;
-      } else if (Array.isArray(dados.body)) {
-        tendenciasArray = dados.body;
-      } else if (dados.body && Array.isArray(dados.body.tendencias)) {
-        tendenciasArray = dados.body.tendencias;
-      } else if (typeof dados.body === 'string') {
-        try {
-          const parsed = JSON.parse(dados.body);
-          if (Array.isArray(parsed)) tendenciasArray = parsed;
-          else if (Array.isArray(parsed.tendencias)) tendenciasArray = parsed.tendencias;
-        } catch {}
-      }
-
-      if (tendenciasArray.length > 0) {
-        const formatado: Trend[] = tendenciasArray.map((p: any) => ({
-          date: p.date || p.data || '',
-          value: parseInt(p.value || p.valor || p.popularity || 0)
-        }));
-        setTendencias(formatado);
+      if (dados.tendencias && dados.tendencias.length > 0) {
+        setTendencias(dados.tendencias);
       } else {
-        setErro('Nenhum dado encontrado para este termo. Tente outro.');
+        setTendencias([]);
+        setErro(dados.mensagem || 'Nenhum dado encontrado para este termo.');
       }
     } catch (e) {
       setErro('Falha na conexão com o servidor.');
+      setTendencias([]);
     } finally {
       setCarregando(false);
     }
@@ -92,7 +62,7 @@ export default function Tendencias() {
           Tendências em Tempo Real
         </h1>
         <p className="text-gray-400 text-sm mb-6">
-          Pesquise qualquer termo e veja a popularidade nos últimos 7 períodos para cada plataforma.
+          Veja a popularidade de termos no YouTube. TikTok e Instagram em breve.
         </p>
 
         <div className="grid grid-cols-3 gap-3 mb-6">
@@ -137,8 +107,9 @@ export default function Tendencias() {
         </div>
 
         {erro && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-red-400 text-sm mb-6">
-            {erro}
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-amber-400 text-sm mb-6 flex items-start gap-2">
+            <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <span>{erro}</span>
           </div>
         )}
 
@@ -167,16 +138,8 @@ export default function Tendencias() {
           </div>
         )}
 
-        {/* Exibe a resposta bruta para debug */}
-        {respostaBruta && (
-          <details className="mt-6 bg-gray-800/50 rounded-xl p-4">
-            <summary className="text-xs text-gray-400 cursor-pointer">Ver resposta bruta da API</summary>
-            <pre className="text-xs text-gray-300 mt-2 whitespace-pre-wrap">{respostaBruta}</pre>
-          </details>
-        )}
-
         <p className="text-gray-500 text-xs mt-6 text-center">
-          Dados fornecidos por Trends MCP. As buscas são limitadas a 20 por dia.
+          Dados fornecidos pela API oficial do YouTube. TikTok e Instagram em breve.
         </p>
       </div>
     </div>
