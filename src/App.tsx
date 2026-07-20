@@ -149,10 +149,11 @@ function App() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Verificações de rota — Calendario PRIMEIRO
   const path = window.location.pathname;
+  if (path === '/calendario') return <Calendario />;
   if (path === '/termos') return <Termos />;
   if (path === '/privacidade') return <Privacidade />;
-  if (path === '/calendario') return <Calendario />;
 
   if (!usuario) {
     return (
