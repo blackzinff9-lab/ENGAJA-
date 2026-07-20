@@ -243,7 +243,7 @@ def pesquisar_trendsmcp(tema: str, plataforma: str) -> str:
         print(f"[Trends MCP] Erro: {e}")
         return ""
 
-# ========== ENDPOINT DE TENDÊNCIAS (ESTÁVEL - APENAS YOUTUBE) ==========
+# ========== ENDPOINT DE TENDÊNCIAS (ESTÁVEL - LISTA DE VÍDEOS) ==========
 
 @app.post("/api/tendencias")
 async def buscar_tendencias(req: RequisicaoTendencia):
@@ -254,7 +254,7 @@ async def buscar_tendencias(req: RequisicaoTendencia):
     # TikTok e Instagram: mensagem amigável
     if req.plataforma in ("tiktok", "instagram"):
         return {
-            "tendencias": [],
+            "videos": [],
             "mensagem": f"Dados de tendências para {req.plataforma.capitalize()} estarão disponíveis em breve. Por enquanto, experimente buscar no YouTube."
         }
 
@@ -267,7 +267,7 @@ async def buscar_tendencias(req: RequisicaoTendencia):
                 f"https://www.googleapis.com/youtube/v3/search"
                 f"?part=snippet&q={urllib.parse.quote(termo)}"
                 f"&type=video&order=viewCount&maxResults=7"
-                f"&key={YOUTUBE_API_KEY}"
+                f"&relevanceLanguage=pt&key={YOUTUBE_API_KEY}"
             )
             resp = requests.get(url, timeout=10)
             if not resp.ok:
@@ -277,12 +277,13 @@ async def buscar_tendencias(req: RequisicaoTendencia):
             videos = dados.get("items", [])
             resultado = [
                 {
-                    "date": v["snippet"]["publishedAt"][:10],
-                    "value": 100 - i * 10
+                    "titulo": v["snippet"]["title"],
+                    "data": v["snippet"]["publishedAt"][:10],
+                    "posicao": i + 1
                 }
                 for i, v in enumerate(videos)
             ]
-            return {"tendencias": resultado}
+            return {"videos": resultado}
         except HTTPException:
             raise
         except Exception as e:
