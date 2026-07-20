@@ -469,10 +469,14 @@ async def health():
     return {"status": "ok"}
 
 # ==========================================
-# SERVIR FRONTEND
+# SERVIR FRONTEND (CORRIGIDO)
 # ==========================================
 
-possiveis_caminhos = [os.path.join(os.path.dirname(__file__), "dist"), os.path.join(os.path.dirname(__file__), "..", "dist"), "/opt/render/project/src/dist"]
+possiveis_caminhos = [
+    os.path.join(os.path.dirname(__file__), "dist"),
+    os.path.join(os.path.dirname(__file__), "..", "dist"),
+    "/opt/render/project/src/dist"
+]
 frontend_path = ""
 for caminho in possiveis_caminhos:
     if os.path.exists(caminho):
@@ -480,7 +484,15 @@ for caminho in possiveis_caminhos:
         break
 
 if frontend_path:
-    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        # Não interferir nas rotas da API
+        if full_path.startswith("api/"):
+            raise HTTPException(404)
+        index_file = os.path.join(frontend_path, "index.html")
+        if os.path.exists(index_file):
+            return FileResponse(index_file)
+        raise HTTPException(404)
 else:
     @app.get("/")
     async def erro_dist():
