@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Sparkles, X, Plus, Trash2, Save, FileText, Hash, Video, Palette, StickyNote } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sparkles, X, Plus, Trash2, Save, FileText, Hash, Video, Palette, StickyNote, MoveHorizontal, Circle, CheckCircle, Edit3, Play } from 'lucide-react';
+
+type StatusIdeia = 'ideia' | 'gravando' | 'editando' | 'postado';
 
 interface IdeiaCalendario {
   id: string;
@@ -11,7 +13,22 @@ interface IdeiaCalendario {
   data: string;
   anotacao?: string;
   plataforma?: string;
+  status: StatusIdeia;
 }
+
+const STATUS_CONFIG: Record<StatusIdeia, { label: string; cor: string; icone: React.ReactNode }> = {
+  ideia: { label: 'Ideia', cor: 'text-gray-400 bg-gray-500/20', icone: <Circle className="w-3 h-3" /> },
+  gravando: { label: 'Gravando', cor: 'text-blue-400 bg-blue-500/20', icone: <Play className="w-3 h-3" /> },
+  editando: { label: 'Editando', cor: 'text-amber-400 bg-amber-500/20', icone: <Edit3 className="w-3 h-3" /> },
+  postado: { label: 'Postado', cor: 'text-emerald-400 bg-emerald-500/20', icone: <CheckCircle className="w-3 h-3" /> },
+};
+
+const PROXIMO_STATUS: Record<StatusIdeia, StatusIdeia> = {
+  ideia: 'gravando',
+  gravando: 'editando',
+  editando: 'postado',
+  postado: 'ideia',
+};
 
 export default function Calendario() {
   const [ideias, setIdeias] = useState<IdeiaCalendario[]>([]);
@@ -21,14 +38,21 @@ export default function Calendario() {
   const [modalAberto, setModalAberto] = useState(false);
   const [modoAdicao, setModoAdicao] = useState(false);
 
+  // Campos do formulário manual
   const [novoTitulo, setNovoTitulo] = useState('');
   const [novaDescricao, setNovaDescricao] = useState('');
   const [novasHashtags, setNovasHashtags] = useState('');
   const [novaAnotacao, setNovaAnotacao] = useState('');
 
+  // Estado para mover ideia
+  const [ideiaParaMover, setIdeiaParaMover] = useState<string | null>(null);
+  const [novaData, setNovaData] = useState('');
+
   useEffect(() => {
     const salvas = JSON.parse(localStorage.getItem('engajai_calendario') || '[]');
-    setIdeias(salvas);
+    // Garantir que ideias antigas sem status recebam o status 'ideia'
+    const normalizadas = salvas.map((i: any) => ({ ...i, status: i.status || 'ideia' }));
+    setIdeias(normalizadas);
   }, []);
 
   const salvarNoLocalStorage = (novasIdeias: IdeiaCalendario[]) => {
@@ -48,6 +72,7 @@ export default function Calendario() {
       data: diaSelecionado,
       anotacao: novaAnotacao,
       plataforma: 'manual',
+      status: 'ideia',
     };
     const novasIdeias = [...ideias, nova];
     salvarNoLocalStorage(novasIdeias);
@@ -61,6 +86,29 @@ export default function Calendario() {
   const excluirIdeia = (id: string) => {
     const novasIdeias = ideias.filter(i => i.id !== id);
     salvarNoLocalStorage(novasIdeias);
+  };
+
+  const alterarStatus = (id: string) => {
+    const novasIdeias = ideias.map(i => {
+      if (i.id === id) {
+        return { ...i, status: PROXIMO_STATUS[i.status] };
+      }
+      return i;
+    });
+    salvarNoLocalStorage(novasIdeias);
+  };
+
+  const moverIdeia = (id: string) => {
+    if (!novaData) return;
+    const novasIdeias = ideias.map(i => {
+      if (i.id === id) {
+        return { ...i, data: novaData };
+      }
+      return i;
+    });
+    salvarNoLocalStorage(novasIdeias);
+    setIdeiaParaMover(null);
+    setNovaData('');
   };
 
   const diasNoMes = new Date(anoAtual, mesAtual + 1, 0).getDate();
@@ -165,85 +213,138 @@ export default function Calendario() {
                   <p className="text-gray-400 text-sm mb-4">Nenhuma ideia para este dia.</p>
                 )}
                 <div className="space-y-4 mb-4">
-                  {ideiasDoDia.map((ideia) => (
-                    <div key={ideia.id} className="bg-white/5 border border-white/10 rounded-xl p-4 relative space-y-3">
-                      <button
-                        onClick={() => excluirIdeia(ideia.id)}
-                        className="absolute top-2 right-2 text-gray-500 hover:text-red-400 transition"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-
-                      {/* Título */}
-                      <div className="flex items-start gap-2">
-                        <FileText className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <span className="text-[10px] text-purple-400 uppercase tracking-wider font-bold">Título</span>
-                          <p className="text-white font-semibold">{ideia.titulo}</p>
+                  {ideiasDoDia.map((ideia) => {
+                    const statusConfig = STATUS_CONFIG[ideia.status];
+                    return (
+                      <div key={ideia.id} className="bg-white/5 border border-white/10 rounded-xl p-4 relative space-y-3">
+                        <div className="absolute top-2 right-2 flex gap-1">
+                          {/* Botão Mover */}
+                          <button
+                            onClick={() => {
+                              setIdeiaParaMover(ideia.id);
+                              setNovaData(ideia.data);
+                            }}
+                            className="text-gray-500 hover:text-blue-400 transition"
+                            title="Mover para outro dia"
+                          >
+                            <MoveHorizontal className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => excluirIdeia(ideia.id)}
+                            className="text-gray-500 hover:text-red-400 transition"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
+
+                        {/* Status */}
+                        <button
+                          onClick={() => alterarStatus(ideia.id)}
+                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold ${statusConfig.cor}`}
+                        >
+                          {statusConfig.icone}
+                          {statusConfig.label}
+                        </button>
+
+                        {/* Título */}
+                        <div className="flex items-start gap-2">
+                          <FileText className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <span className="text-[10px] text-purple-400 uppercase tracking-wider font-bold">Título</span>
+                            <p className="text-white font-semibold">{ideia.titulo}</p>
+                          </div>
+                        </div>
+
+                        {/* Descrição */}
+                        {ideia.descricao && (
+                          <div className="flex items-start gap-2">
+                            <FileText className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <span className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Descrição</span>
+                              <p className="text-gray-300 text-sm">{ideia.descricao}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Hashtags */}
+                        {ideia.hashtags && (
+                          <div className="flex items-start gap-2">
+                            <Hash className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <span className="text-[10px] text-emerald-400 uppercase tracking-wider font-bold">Hashtags</span>
+                              <p className="text-emerald-300 text-sm">{ideia.hashtags}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Roteiro */}
+                        {ideia.roteiro && (
+                          <div className="flex items-start gap-2">
+                            <Video className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <span className="text-[10px] text-blue-400 uppercase tracking-wider font-bold">Roteiro</span>
+                              <p className="text-gray-400 text-sm whitespace-pre-line">{ideia.roteiro}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Ideia de Edição */}
+                        {ideia.ideiaEdicao && (
+                          <div className="flex items-start gap-2">
+                            <Palette className="w-4 h-4 text-pink-400 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <span className="text-[10px] text-pink-400 uppercase tracking-wider font-bold">Ideia de Edição</span>
+                              <p className="text-gray-400 text-sm">{ideia.ideiaEdicao}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Anotação */}
+                        {ideia.anotacao && (
+                          <div className="flex items-start gap-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
+                            <StickyNote className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <span className="text-[10px] text-yellow-400 uppercase tracking-wider font-bold">Anotação</span>
+                              <p className="text-gray-300 text-sm">{ideia.anotacao}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Plataforma */}
+                        {ideia.plataforma && ideia.plataforma !== 'manual' && (
+                          <p className="text-[10px] text-purple-400/60">Gerado para: {ideia.plataforma}</p>
+                        )}
+
+                        {/* Modal de mover (mini) */}
+                        {ideiaParaMover === ideia.id && (
+                          <div className="bg-gray-800 border border-gray-600 rounded-xl p-3 mt-2">
+                            <p className="text-xs text-gray-400 mb-2">Mover para:</p>
+                            <input
+                              type="date"
+                              value={novaData}
+                              onChange={(e) => setNovaData(e.target.value)}
+                              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-purple-500/50"
+                            />
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                onClick={() => setIdeiaParaMover(null)}
+                                className="flex-1 py-2 rounded-lg bg-white/5 text-gray-400 text-xs hover:bg-white/10 transition"
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                onClick={() => moverIdeia(ideia.id)}
+                                disabled={!novaData}
+                                className="flex-1 py-2 rounded-lg bg-purple-500/20 text-purple-400 text-xs font-bold hover:bg-purple-500/30 transition disabled:opacity-50"
+                              >
+                                Mover
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-
-                      {/* Descrição */}
-                      {ideia.descricao && (
-                        <div className="flex items-start gap-2">
-                          <FileText className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <span className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Descrição</span>
-                            <p className="text-gray-300 text-sm">{ideia.descricao}</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Hashtags */}
-                      {ideia.hashtags && (
-                        <div className="flex items-start gap-2">
-                          <Hash className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <span className="text-[10px] text-emerald-400 uppercase tracking-wider font-bold">Hashtags</span>
-                            <p className="text-emerald-300 text-sm">{ideia.hashtags}</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Roteiro */}
-                      {ideia.roteiro && (
-                        <div className="flex items-start gap-2">
-                          <Video className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <span className="text-[10px] text-blue-400 uppercase tracking-wider font-bold">Roteiro</span>
-                            <p className="text-gray-400 text-sm whitespace-pre-line">{ideia.roteiro}</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Ideia de Edição */}
-                      {ideia.ideiaEdicao && (
-                        <div className="flex items-start gap-2">
-                          <Palette className="w-4 h-4 text-pink-400 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <span className="text-[10px] text-pink-400 uppercase tracking-wider font-bold">Ideia de Edição</span>
-                            <p className="text-gray-400 text-sm">{ideia.ideiaEdicao}</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Anotação */}
-                      {ideia.anotacao && (
-                        <div className="flex items-start gap-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
-                          <StickyNote className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <span className="text-[10px] text-yellow-400 uppercase tracking-wider font-bold">Anotação</span>
-                            <p className="text-gray-300 text-sm">{ideia.anotacao}</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Plataforma */}
-                      {ideia.plataforma && ideia.plataforma !== 'manual' && (
-                        <p className="text-[10px] text-purple-400/60">Gerado para: {ideia.plataforma}</p>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <button
                   onClick={() => setModoAdicao(true)}
@@ -306,4 +407,4 @@ export default function Calendario() {
       )}
     </div>
   );
-              }
+                }
