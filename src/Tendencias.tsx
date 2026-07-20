@@ -20,13 +20,15 @@ export default function Tendencias() {
   const [termo, setTermo] = useState('');
   const [plataforma, setPlataforma] = useState<PlataformaTendencia>('tiktok');
   const [erro, setErro] = useState('');
+  const [respostaBruta, setRespostaBruta] = useState('');
 
   const buscarTendencias = async () => {
     if (!termo.trim()) return;
     setCarregando(true);
     setErro('');
+    setRespostaBruta('');
+    setTendencias([]);
     try {
-      // Agora chamamos nosso próprio backend, que faz a ponte com o Trends MCP
       const resposta = await fetch('/api/tendencias', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -35,14 +37,48 @@ export default function Tendencias() {
 
       if (!resposta.ok) {
         const erroData = await resposta.json();
-        setErro(erroData.detail || 'Erro ao buscar tendências. Tente novamente.');
+        setErro(erroData.detail || 'Erro ao buscar tendências.');
         return;
       }
 
       const dados = await resposta.json();
-      setTendencias(dados.tendencias || []);
+      console.log('Resposta da API:', dados);
+      setRespostaBruta(JSON.stringify(dados, null, 2));
+
+      // Tenta extrair o array de tendências de várias formas possíveis
+      let tendenciasArray: Trend[] = [];
+
+      if (Array.isArray(dados.tendencias)) {
+        tendenciasArray = dados.tendencias;
+      } else if (Array.isArray(dados)) {
+        tendenciasArray = dados;
+      } else if (Array.isArray(dados.data)) {
+        tendenciasArray = dados.data;
+      } else if (Array.isArray(dados.results)) {
+        tendenciasArray = dados.results;
+      } else if (Array.isArray(dados.body)) {
+        tendenciasArray = dados.body;
+      } else if (dados.body && Array.isArray(dados.body.tendencias)) {
+        tendenciasArray = dados.body.tendencias;
+      } else if (typeof dados.body === 'string') {
+        try {
+          const parsed = JSON.parse(dados.body);
+          if (Array.isArray(parsed)) tendenciasArray = parsed;
+          else if (Array.isArray(parsed.tendencias)) tendenciasArray = parsed.tendencias;
+        } catch {}
+      }
+
+      if (tendenciasArray.length > 0) {
+        const formatado: Trend[] = tendenciasArray.map((p: any) => ({
+          date: p.date || p.data || '',
+          value: parseInt(p.value || p.valor || p.popularity || 0)
+        }));
+        setTendencias(formatado);
+      } else {
+        setErro('Nenhum dado encontrado para este termo. Tente outro.');
+      }
     } catch (e) {
-      setErro('Falha na conexão com o servidor. Tente novamente.');
+      setErro('Falha na conexão com o servidor.');
     } finally {
       setCarregando(false);
     }
@@ -59,7 +95,6 @@ export default function Tendencias() {
           Pesquise qualquer termo e veja a popularidade nos últimos 7 períodos para cada plataforma.
         </p>
 
-        {/* Seletor de plataforma */}
         <div className="grid grid-cols-3 gap-3 mb-6">
           {PLATAFORMAS.map((plat) => (
             <button
@@ -130,6 +165,14 @@ export default function Tendencias() {
               })}
             </div>
           </div>
+        )}
+
+        {/* Exibe a resposta bruta para debug */}
+        {respostaBruta && (
+          <details className="mt-6 bg-gray-800/50 rounded-xl p-4">
+            <summary className="text-xs text-gray-400 cursor-pointer">Ver resposta bruta da API</summary>
+            <pre className="text-xs text-gray-300 mt-2 whitespace-pre-wrap">{respostaBruta}</pre>
+          </details>
         )}
 
         <p className="text-gray-500 text-xs mt-6 text-center">
