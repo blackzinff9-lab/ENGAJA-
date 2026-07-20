@@ -50,6 +50,7 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
   // Estados do calendário
   const [calendarioAberto, setCalendarioAberto] = useState(false);
   const [ideiaParaCalendario, setIdeiaParaCalendario] = useState('');
+  const [ideiaCompletaParaCalendario, setIdeiaCompletaParaCalendario] = useState<any>(null);
 
   const aoEnviar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,6 +157,13 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
       alert('Erro ao conectar com Mercado Pago.');
     }
   };
+
+  // Função para abrir o modal e passar a ideia completa
+  const abrirCalendario = (ideiaCompleta: any) => {
+    setIdeiaCompletaParaCalendario(ideiaCompleta);
+    setIdeiaParaCalendario(ideiaCompleta.titulo);
+    setCalendarioAberto(true);
+  };
     return (
     <div className="w-full max-w-5xl mx-auto">
       {/* Cabeçalho */}
@@ -247,8 +255,7 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
           <h2 className="text-2xl font-bold text-white flex items-center gap-2"><Sparkles className="w-6 h-6 text-purple-400" />{t('dash_viral_title')}</h2>
 
           {/* Botão Adicionar ao Calendário */}
-          <button onClick={() => { setIdeiaParaCalendario(conteudoGerado.titulo); setCalendarioAberto(true); }}
-            className="mt-4 px-4 py-2 rounded-xl bg-purple-500/20 text-purple-400 text-sm font-bold hover:bg-purple-500/30 transition">
+          <button onClick={() => abrirCalendario(conteudoGerado)} className="mt-4 px-4 py-2 rounded-xl bg-purple-500/20 text-purple-400 text-sm font-bold hover:bg-purple-500/30 transition">
             📅 Adicionar ao Calendário
           </button>
 
@@ -339,7 +346,7 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
                         <p className="text-white/50 text-sm mt-1">{ideia.temaCurto}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => { setIdeiaParaCalendario(ideia.titulo); setCalendarioAberto(true); }}
+                        <button onClick={() => abrirCalendario({ titulo: ideia.titulo, descricao: '', hashtags: '', roteiro: '', ideiaEdicao: '', plataforma: '' })}
                           className="flex-shrink-0 px-2 py-1 rounded-lg bg-purple-500/20 text-purple-400 text-xs hover:bg-purple-500/30 transition" title="Adicionar ao Calendário">
                           📅
                         </button>
@@ -380,11 +387,21 @@ export default function Dashboard({ aoGerar, carregando, backendOk, statusBacken
         onClose={() => setCalendarioAberto(false)}
         onSave={(data, anotacao) => {
           const ideiasSalvas = JSON.parse(localStorage.getItem('engajai_calendario') || '[]');
-          ideiasSalvas.push({ id: Date.now().toString(), titulo: ideiaParaCalendario, data, anotacao });
+          ideiasSalvas.push({
+            id: Date.now().toString(),
+            titulo: ideiaCompletaParaCalendario?.titulo || ideiaParaCalendario,
+            descricao: ideiaCompletaParaCalendario?.descricao || '',
+            hashtags: ideiaCompletaParaCalendario?.hashtags || '',
+            roteiro: ideiaCompletaParaCalendario?.roteiro || '',
+            ideiaEdicao: ideiaCompletaParaCalendario?.ideiaEdicao || '',
+            plataforma: ideiaCompletaParaCalendario?.plataforma || '',
+            data,
+            anotacao
+          });
           localStorage.setItem('engajai_calendario', JSON.stringify(ideiasSalvas));
         }}
         tituloIdeia={ideiaParaCalendario}
       />
     </div>
   );
-                                                                                                                                                        }
+              }
