@@ -5,6 +5,7 @@ import Termos from './Termos';
 import Privacidade from './Privacidade';
 import ConsentPage from './ConsentPage';
 import Calendario from './Calendario';
+import Tendencias from './Tendencias';
 import { Platform } from './types';
 import { StatusBackend } from './api';
 import { Zap, Sparkles, CheckCircle2, Menu, X } from 'lucide-react';
@@ -149,9 +150,9 @@ function App() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Verificações de rota — Calendario PRIMEIRO
   const path = window.location.pathname;
   if (path === '/calendario') return <Calendario />;
+  if (path === '/tendencias') return <Tendencias />;
   if (path === '/termos') return <Termos />;
   if (path === '/privacidade') return <Privacidade />;
 
@@ -218,6 +219,9 @@ function App() {
                   <a href="/calendario" className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition" onClick={() => setMenuDropdownAberto(false)}>
                     📅 Calendário Editorial
                   </a>
+                  <a href="/tendencias" className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition" onClick={() => setMenuDropdownAberto(false)}>
+                    📊 Tendências
+                  </a>
                   <a href="mailto:engajaibrasil00@gmail.com" className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition" onClick={() => setMenuDropdownAberto(false)}>
                     {t('menu_support')}
                   </a>
@@ -248,6 +252,7 @@ function App() {
               <span className="text-sm text-gray-400">{usuario.nome}</span>
             </div>
             <a href="/calendario" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>📅 Calendário Editorial</a>
+            <a href="/tendencias" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>📊 Tendências</a>
             <a href="mailto:engajaibrasil00@gmail.com" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>{t('menu_support')}</a>
             <a href="/termos" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>{t('menu_terms')}</a>
             <a href="/privacidade" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>{t('menu_privacy')}</a>
