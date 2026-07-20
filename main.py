@@ -285,7 +285,7 @@ async def verificar_assinatura(user_id: str):
         print(f"[Verificação Assinatura] Erro: {e}")
         return {"status": "error"}
         # ==========================================
-# ENDPOINT PRINCIPAL DE GERAÇÃO
+# ENDPOINT PRINCIPAL DE GERAÇÃO (PROMPTS OTIMIZADOS)
 # ==========================================
 
 @app.post("/api/gerar")
@@ -312,34 +312,29 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
 
     # Buscar tendências de múltiplas fontes
     dados_tendencias = ""
-
-    # Trends MCP para TODAS as plataformas
     dados_mcp = pesquisar_trendsmcp(req.tema, req.plataforma)
     if dados_mcp:
         dados_tendencias += f"[Trends MCP]\n{dados_mcp}\n\n"
-
-    # YouTube API adicional para YouTube
     if req.plataforma == "youtube":
         dados_yt = pesquisar_youtube(req.tema)
         if dados_yt:
             dados_tendencias += f"[YouTube]\n{dados_yt}\n"
-
     if not dados_tendencias:
         dados_tendencias = "Nenhum dado externo disponível."
 
-    # ========== PASSO 1: Título, descrição e hashtags ==========
-    prompt_curto = f"""Crie conteúdo para {nome_plataforma} sobre: "{req.tema}"
+    # ========== PASSO 1: Título, descrição e hashtags (OTIMIZADO) ==========
+    prompt_curto = f"""Crie conteúdo profissional para {nome_plataforma} sobre: "{req.tema}"
 
 Dados de tendências reais (use como inspiração):
 {dados_tendencias}
 
 Gere APENAS um JSON com:
-- "titulo": título chamativo (máx 100 caracteres)
-- "descricao": descrição envolvente (máx 300 caracteres)
-- "hashtags": string única (ex: "#tag1 #tag2 #tag3")
+- "titulo": título chamativo e otimizado para SEO (máx 100 caracteres, com gancho emocional ou curiosidade)
+- "descricao": descrição envolvente (150-300 caracteres) com call-to-action claro, emojis estratégicos e palavras-chave relevantes
+- "hashtags": string única com 5-8 hashtags separadas por espaço (ex: "#tag1 #tag2 #tag3"), misturando tags amplas, de nicho e tendência
 
 Responda em {idioma}. APENAS o JSON, sem markdown."""
-    resposta_curta = chamar_groq(prompt_curto, max_tokens=500)
+    resposta_curta = chamar_groq(prompt_curto, max_tokens=800)
     dados_curtos = normalizar_chaves(limpar_json(resposta_curta))
     titulo = dados_curtos.get("titulo") or f"{req.tema.split()[0].capitalize()}: Ideia Principal"
     descricao = dados_curtos.get("descricao") or f"Conteúdo sobre {req.tema}."
@@ -349,8 +344,8 @@ Responda em {idioma}. APENAS o JSON, sem markdown."""
     if not hashtags:
         hashtags = f"#{req.tema.replace(' ', '')} #conteudo #viral"
 
-    # ========== PASSO 2: Roteiro + Ideia de Edição ==========
-    prompt_longo = f"""Crie roteiro e ideia de edição para {nome_plataforma}: "{req.tema}"
+    # ========== PASSO 2: Roteiro + Ideia de Edição (OTIMIZADO) ==========
+    prompt_longo = f"""Crie um roteiro detalhado e uma ideia de edição profissional para {nome_plataforma}: "{req.tema}"
 
 Título: "{titulo}"
 Descrição: "{descricao}"
@@ -360,12 +355,12 @@ Dados de tendências:
 {dados_tendencias}
 
 Gere APENAS um JSON com:
-- "roteiro": string única com cenas [CENA X – TEMPO], enquadramento, falas, sons
-- "ideiaEdicao": string descritiva (cores hex, fontes, música, efeitos)
-- "tendencias": array com 3 strings curtas
+- "roteiro": string única com o roteiro COMPLETO, dividido em cenas numeradas com TEMPOS EXATOS (ex.: [CENA 1 – ABERTURA (0s-3s)]), descreva ENQUADRAMENTO (close, plongée, plano geral), movimentos de câmera, falas COMPLETAS (mínimo 2 frases por cena), texto na tela (para SEO), transições (corte seco, fade, slide) e sons ambientes. Use estrutura de storytelling (gancho → desenvolvimento → clímax → call to action). Mínimo 4 cenas.
+- "ideiaEdicao": string descritiva com NO MÍNIMO 150 PALAVRAS, incluindo: paleta de cores (códigos hex), fontes (ex.: Montserrat Bold para títulos), filtros visuais (ex.: Vibrant +20 contraste), sugestão de música (gênero, BPM, clima), efeitos sonoros (ex.: whoosh em transições, pop no texto animado), elementos gráficos (ex.: linhas cinéticas, stick text amarelo, emojis animados), transições específicas entre cenas.
+- "tendencias": array com 3 strings curtas sobre tendências identificadas.
 
 Responda em {idioma}. APENAS o JSON, sem markdown."""
-    resposta_longa = chamar_groq(prompt_longo, max_tokens=1500)
+    resposta_longa = chamar_groq(prompt_longo, max_tokens=2500)
     dados_longos = normalizar_chaves(limpar_json(resposta_longa))
     roteiro = dados_longos.get("roteiro", f"[ABERTURA] {req.tema}. [DESENVOLVIMENTO] Principais pontos. [ENCERRAMENTO] Call to action.")
     ideia_edicao = dados_longos.get("ideiaEdicao", "Paleta: #0A0A0A, #FFD700, #00E5FF. Fonte Montserrat. Música eletrônica 120 BPM.")
@@ -486,7 +481,6 @@ for caminho in possiveis_caminhos:
 if frontend_path:
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
-        # Não interferir nas rotas da API
         if full_path.startswith("api/"):
             raise HTTPException(404)
         index_file = os.path.join(frontend_path, "index.html")
