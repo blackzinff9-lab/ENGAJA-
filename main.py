@@ -243,7 +243,7 @@ def pesquisar_trendsmcp(tema: str, plataforma: str) -> str:
         print(f"[Trends MCP] Erro: {e}")
         return ""
 
-# ========== ENDPOINT DE TENDÊNCIAS (SOLUÇÃO ROBUSTA) ==========
+# ========== ENDPOINT DE TENDÊNCIAS (ESTÁVEL - APENAS YOUTUBE) ==========
 
 @app.post("/api/tendencias")
 async def buscar_tendencias(req: RequisicaoTendencia):
@@ -251,59 +251,44 @@ async def buscar_tendencias(req: RequisicaoTendencia):
     if not termo:
         raise HTTPException(400, detail="Termo não pode estar vazio")
 
-    if req.plataforma == "youtube" and YOUTUBE_API_KEY:
-        # Usa a API oficial do YouTube para buscar vídeos populares sobre o termo
+    # TikTok e Instagram: mensagem amigável
+    if req.plataforma in ("tiktok", "instagram"):
+        return {
+            "tendencias": [],
+            "mensagem": f"Dados de tendências para {req.plataforma.capitalize()} estarão disponíveis em breve. Por enquanto, experimente buscar no YouTube."
+        }
+
+    # YouTube: API oficial
+    if req.plataforma == "youtube":
+        if not YOUTUBE_API_KEY:
+            raise HTTPException(500, detail="Chave da API do YouTube não configurada")
         try:
-            url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&q={urllib.parse.quote(termo)}&type=video&order=viewCount&maxResults=7&key={YOUTUBE_API_KEY}"
+            url = (
+                f"https://www.googleapis.com/youtube/v3/search"
+                f"?part=snippet&q={urllib.parse.quote(termo)}"
+                f"&type=video&order=viewCount&maxResults=7"
+                f"&key={YOUTUBE_API_KEY}"
+            )
             resp = requests.get(url, timeout=10)
             if not resp.ok:
                 raise HTTPException(502, detail="Erro ao consultar YouTube API")
+
             dados = resp.json()
             videos = dados.get("items", [])
-            resultado = [{"date": v["snippet"]["publishedAt"][:10], "value": 100 - i*10} for i, v in enumerate(videos)]
+            resultado = [
+                {
+                    "date": v["snippet"]["publishedAt"][:10],
+                    "value": 100 - i * 10
+                }
+                for i, v in enumerate(videos)
+            ]
             return {"tendencias": resultado}
         except HTTPException:
             raise
         except Exception as e:
             raise HTTPException(500, detail=f"Erro YouTube: {str(e)}")
 
-    # Para TikTok e Instagram, usa uma consulta pública ao Google Trends (não precisa de chave)
-    try:
-        url = f"https://trends.google.com/trends/api/explore?hl=pt-BR&tz=180&req={{\"comparisonItem\":[{{\"keyword\":\"{termo}\",\"geo\":\"\",\"time\":\"today 1-m\"}}],\"category\":0,\"property\":\"\"}}&tz=180"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        resp = requests.get(url, headers=headers, timeout=10)
-        if not resp.ok:
-            raise HTTPException(502, detail="Erro ao acessar Google Trends")
-
-        # A resposta vem como JSON, mas com um prefixo ")]}',\n"
-        texto = resp.text
-        json_str = texto[texto.index("{") :]
-        dados = json.loads(json_str)
-        # Extrai os pontos de interesse ao longo do tempo
-        widgets = dados.get("widgets", [])
-        if not widgets:
-            return {"tendencias": []}
-
-        # Encontra o widget de linha do tempo
-        for widget in widgets:
-            if widget.get("id") == "TIMESERIES":
-                token = widget.get("token")
-                if token:
-                    # Faz a segunda requisição para obter os dados
-                    url2 = f"https://trends.google.com/trends/api/widgetdata/multiline?hl=pt-BR&tz=180&req={{\"time\":\"today 1-m\",\"resolution\":\"DAY\",\"locale\":\"pt-BR\",\"comparisonItem\":[{{\"geo\":{{}},\"complexKeywordsRestriction\":{{\"keyword\":[{{\"type\":\"KEYWORD\",\"value\":\"{termo}\"}}]}}}}],\"requestOptions\":{{\"property\":\"\",\"backend\":\"IZG\",\"category\":0}}}}&token={token}&tz=180"
-                    resp2 = requests.get(url2, headers=headers, timeout=10)
-                    if resp2.ok:
-                        texto2 = resp2.text
-                        json_str2 = texto2[texto2.index("{") :]
-                        dados2 = json.loads(json_str2)
-                        pontos = dados2.get("default", {}).get("timelineData", [])
-                        resultado = [{"date": p.get("formattedTime", ""), "value": p.get("value", [0])[0]} for p in pontos[-7:]]
-                        return {"tendencias": resultado}
-        return {"tendencias": []}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(500, detail=f"Erro Google Trends: {str(e)}")
+    raise HTTPException(400, detail="Plataforma inválida")
 
 # ========== CONTROLE DE LIMITES ==========
 async def get_plano(user_id: str) -> str:
