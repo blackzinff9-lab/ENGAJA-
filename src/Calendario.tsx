@@ -119,18 +119,8 @@ export default function Calendario() {
                     {ideia.plataforma && <p className="text-xs text-purple-400">{ideia.plataforma}</p>}
                     {ideia.descricao && <p className="text-gray-300 text-sm">{ideia.descricao}</p>}
                     {ideia.hashtags && <p className="text-emerald-400 text-sm">{ideia.hashtags}</p>}
-                    {ideia.roteiro && (
-                      <details className="text-gray-400 text-sm">
-                        <summary className="cursor-pointer text-purple-400">Ver roteiro</summary>
-                        <p className="mt-2 whitespace-pre-line">{ideia.roteiro}</p>
-                      </details>
-                    )}
-                    {ideia.ideiaEdicao && (
-                      <details className="text-gray-400 text-sm">
-                        <summary className="cursor-pointer text-purple-400">Ver ideia de edição</summary>
-                        <p className="mt-2">{ideia.ideiaEdicao}</p>
-                      </details>
-                    )}
+                    {ideia.roteiro && <p className="text-gray-400 text-sm whitespace-pre-line mt-2">{ideia.roteiro}</p>}
+                    {ideia.ideiaEdicao && <p className="text-gray-400 text-sm mt-2">{ideia.ideiaEdicao}</p>}
                     {ideia.anotacao && (
                       <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2 mt-2">
                         <p className="text-yellow-400 text-xs font-bold mb-1">📝 Anotação</p>
@@ -146,4 +136,4 @@ export default function Calendario() {
       )}
     </div>
   );
-}
+                    }
