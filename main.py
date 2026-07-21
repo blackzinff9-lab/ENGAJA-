@@ -242,8 +242,7 @@ def pesquisar_trendsmcp(tema: str, plataforma: str) -> str:
     except Exception as e:
         print(f"[Trends MCP] Erro: {e}")
         return ""
-
-# ========== ENDPOINT DE TENDÊNCIAS (15 VÍDEOS RECENTES DO YOUTUBE) ==========
+        # ========== ENDPOINT DE TENDÊNCIAS (HASHTAGS, TÍTULOS E VÍDEOS) ==========
 
 @app.post("/api/tendencias")
 async def buscar_tendencias(req: RequisicaoTendencia):
@@ -251,45 +250,107 @@ async def buscar_tendencias(req: RequisicaoTendencia):
     if not termo:
         raise HTTPException(400, detail="Termo não pode estar vazio")
 
-    if req.plataforma in ("tiktok", "instagram"):
-        return {
-            "videos": [],
-            "mensagem": f"Dados de tendências para {req.plataforma.capitalize()} estarão disponíveis em breve. Por enquanto, experimente buscar no YouTube."
-        }
+    plataforma = req.plataforma.lower()
+    videos = []
+    titulos = []
+    hashtags = []
 
-    if req.plataforma == "youtube":
+    # 1. Buscar dados conforme a plataforma
+    if plataforma == "youtube":
         if not YOUTUBE_API_KEY:
-            raise HTTPException(500, detail="Chave da API do YouTube não configurada")
+            raise HTTPException(500, detail="Chave YouTube API não configurada")
         try:
-            seis_meses_atras = (datetime.now(timezone.utc) - timedelta(days=180)).strftime("%Y-%m-%dT%H:%M:%SZ")
             url = (
                 f"https://www.googleapis.com/youtube/v3/search"
                 f"?part=snippet&q={urllib.parse.quote(termo)}"
-                f"&type=video&order=date&maxResults=15"
-                f"&publishedAfter={seis_meses_atras}"
+                f"&type=video&order=viewCount&maxResults=10"
                 f"&relevanceLanguage=pt&key={YOUTUBE_API_KEY}"
             )
             resp = requests.get(url, timeout=10)
-            if not resp.ok:
-                raise HTTPException(502, detail="Erro ao consultar YouTube API")
-
-            dados = resp.json()
-            videos = dados.get("items", [])
-            resultado = [
-                {
-                    "titulo": v["snippet"]["title"],
-                    "data": v["snippet"]["publishedAt"][:10],
-                    "posicao": i + 1
-                }
-                for i, v in enumerate(videos)
-            ]
-            return {"videos": resultado}
-        except HTTPException:
-            raise
+            if resp.ok:
+                dados = resp.json()
+                for item in dados.get("items", []):
+                    titulo = item["snippet"]["title"]
+                    video_id = item["id"]["videoId"]
+                    videos.append({
+                        "titulo": titulo,
+                        "video_id": video_id,
+                        "url": f"https://www.youtube.com/watch?v={video_id}"
+                    })
+                    titulos.append(titulo)
         except Exception as e:
-            raise HTTPException(500, detail=f"Erro YouTube: {str(e)}")
+            print(f"[YouTube] Erro: {e}")
 
-    raise HTTPException(400, detail="Plataforma inválida")
+    elif plataforma in ("tiktok", "instagram"):
+        if not TRENDSMCP_API_KEY:
+            raise HTTPException(500, detail="Chave Trends MCP não configurada")
+        try:
+            source = "tiktok" if plataforma == "tiktok" else "google trends"
+            resp = requests.post(
+                "https://api.trendsmcp.ai/api",
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {TRENDSMCP_API_KEY}"
+                },
+                json={"source": source, "keyword": termo},
+                timeout=10
+            )
+            if resp.ok:
+                dados = resp.json()
+                corpo = dados.get("body", [])
+                if isinstance(corpo, str):
+                    corpo = json.loads(corpo)
+                if isinstance(corpo, list):
+                    for item in corpo[:10]:
+                        if "title" in item:
+                            titulos.append(item["title"])
+                        elif "date" in item:
+                            titulos.append(f"{item['date']} - {item.get('value', '')}")
+                        if "related" in item:
+                            for rel in item["related"][:3]:
+                                titulos.append(rel)
+        except Exception as e:
+            print(f"[Trends MCP] Erro: {e}")
+
+    # 2. Fallback com Groq se não tivermos títulos
+    if not titulos and GROQ_API_KEY:
+        try:
+            prompt = f"""
+            Gere uma lista de 10 títulos de vídeos virais sobre o tema "{termo}" para a plataforma {plataforma}.
+            Gere também 10 hashtags populares relacionadas.
+            Responda APENAS com um JSON no formato:
+            {{"titulos": ["título1", "título2", ...], "hashtags": ["#tag1", "#tag2", ...]}}
+            """
+            resposta = chamar_groq(prompt, max_tokens=800)
+            dados_fallback = limpar_json(resposta)
+            titulos = dados_fallback.get("titulos", [])[:10]
+            hashtags = dados_fallback.get("hashtags", [])[:10]
+        except Exception as e:
+            print(f"[Fallback] Erro: {e}")
+
+    # 3. Se ainda não temos títulos, usar dados genéricos
+    if not titulos:
+        titulos = [f"{termo} - Ideia {i+1}" for i in range(10)]
+
+    # 4. Gerar hashtags se não foram obtidas
+    if not hashtags:
+        palavras = termo.split()
+        base = "".join(palavras).capitalize()
+        tags = [f"#{base}"]
+        if len(palavras) > 1:
+            tags.append(f"#{''.join(palavras[1:]).capitalize()}")
+        tags.extend([f"#{palavras[0].capitalize()}Dicas", f"#{base}2025"])
+        genericas = ["#Viral", "#Trend", "#FYP", "#Explorar", "#Conteudo", "#SocialMedia"]
+        while len(tags) < 10:
+            tags.append(genericas[len(tags) % len(genericas)])
+        hashtags = tags[:10]
+
+    # 5. Retornar resultado
+    return {
+        "hashtags": hashtags[:10],
+        "titulos": titulos[:10],
+        "videos": videos[:10]
+    }
 
 # ========== CONTROLE DE LIMITES ==========
 async def get_plano(user_id: str) -> str:
@@ -319,7 +380,7 @@ async def registrar_uso(user_id: str, action_type: str):
     except Exception as e:
         print(f"[Supabase] Erro ao registrar uso: {e}")
 
-async def verificar_assinatura(user_id: str):
+async def verificar_status_assinatura(user_id: str):
     try:
         search = mp_sdk.preapproval().search({"external_reference": user_id})
         if search.get("status") == 200:
@@ -337,7 +398,7 @@ async def verificar_assinatura(user_id: str):
         print(f"[Verificação Assinatura] Erro: {e}")
         return {"status": "error"}
         # ==========================================
-# ENDPOINT PRINCIPAL DE GERAÇÃO (PROMPTS OTIMIZADOS)
+# ENDPOINT PRINCIPAL DE GERAÇÃO
 # ==========================================
 
 @app.post("/api/gerar")
@@ -362,7 +423,6 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
 
     nome_plataforma = {"tiktok": "TikTok", "instagram": "Instagram", "youtube": "YouTube"}[req.plataforma]
 
-    # Buscar tendências de múltiplas fontes
     dados_tendencias = ""
     dados_mcp = pesquisar_trendsmcp(req.tema, req.plataforma)
     if dados_mcp:
@@ -374,7 +434,6 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
     if not dados_tendencias:
         dados_tendencias = "Nenhum dado externo disponível."
 
-    # ========== PASSO 1: Título, descrição e hashtags (OTIMIZADO) ==========
     prompt_curto = f"""Crie conteúdo profissional para {nome_plataforma} sobre: "{req.tema}"
 
 Dados de tendências reais (use como inspiração):
@@ -396,7 +455,6 @@ Responda em {idioma}. APENAS o JSON, sem markdown."""
     if not hashtags:
         hashtags = f"#{req.tema.replace(' ', '')} #conteudo #viral"
 
-    # ========== PASSO 2: Roteiro + Ideia de Edição (OTIMIZADO) ==========
     prompt_longo = f"""Crie um roteiro detalhado e uma ideia de edição profissional para {nome_plataforma}: "{req.tema}"
 
 Título: "{titulo}"
@@ -436,7 +494,7 @@ Responda em {idioma}. APENAS o JSON, sem markdown."""
     }
 
 # ==========================================
-# ENDPOINT DE SEQUÊNCIA DE 10 IDEIAS (MAX TOKENS 3000 + TENDÊNCIAS REAIS)
+# ENDPOINT DE SEQUÊNCIA DE 10 IDEIAS
 # ==========================================
 
 @app.post("/api/gerar-sequencia")
@@ -450,7 +508,6 @@ async def gerar_sequencia(req: RequisicaoSequencia, request: Request):
     idioma = req.idioma if req.idioma in ("pt", "en") else "pt"
     nome_plataforma = {"tiktok": "TikTok", "instagram": "Instagram", "youtube": "YouTube"}[req.plataforma]
 
-    # Buscar tendências reais para enriquecer o prompt
     dados_tendencias = ""
     dados_mcp = pesquisar_trendsmcp(req.tema, req.plataforma)
     if dados_mcp:
@@ -545,7 +602,7 @@ async def health():
     return {"status": "ok"}
 
 # ==========================================
-# SERVIR FRONTEND (CORRIGIDO)
+# SERVIR FRONTEND
 # ==========================================
 
 possiveis_caminhos = [
