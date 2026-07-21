@@ -242,7 +242,7 @@ def pesquisar_trendsmcp(tema: str, plataforma: str) -> str:
     except Exception as e:
         print(f"[Trends MCP] Erro: {e}")
         return ""
-        # ========== ENDPOINT DE TENDÊNCIAS (HASHTAGS, TÍTULOS E VÍDEOS) ==========
+        # ========== ENDPOINT DE TENDÊNCIAS (HASHTAGS, TÍTULOS E VÍDEOS REAIS) ==========
 
 @app.post("/api/tendencias")
 async def buscar_tendencias(req: RequisicaoTendencia):
@@ -278,6 +278,22 @@ async def buscar_tendencias(req: RequisicaoTendencia):
                         "url": f"https://www.youtube.com/watch?v={video_id}"
                     })
                     titulos.append(titulo)
+                    # Extrai hashtags do título
+                    for palavra in titulo.split():
+                        if palavra.startswith("#"):
+                            hashtags.append(palavra)
+            # Se não achou hashtags, busca tags dos vídeos
+            if not hashtags and videos:
+                video_ids = ",".join([v["video_id"] for v in videos[:5]])
+                url_videos = f"https://www.googleapis.com/youtube/v3/videos?part=snippet&id={video_ids}&key={YOUTUBE_API_KEY}"
+                resp_videos = requests.get(url_videos, timeout=10)
+                if resp_videos.ok:
+                    dados_videos = resp_videos.json()
+                    for item in dados_videos.get("items", []):
+                        tags = item["snippet"].get("tags", [])
+                        for tag in tags:
+                            if tag.startswith("#"):
+                                hashtags.append(tag)
         except Exception as e:
             print(f"[YouTube] Erro: {e}")
 
@@ -303,52 +319,68 @@ async def buscar_tendencias(req: RequisicaoTendencia):
                 if isinstance(corpo, list):
                     for item in corpo[:10]:
                         if "title" in item:
-                            titulos.append(item["title"])
+                            titulo = item["title"]
+                            titulos.append(titulo)
+                            for palavra in titulo.split():
+                                if palavra.startswith("#"):
+                                    hashtags.append(palavra)
                         elif "date" in item:
                             titulos.append(f"{item['date']} - {item.get('value', '')}")
                         if "related" in item:
                             for rel in item["related"][:3]:
                                 titulos.append(rel)
+                                for palavra in rel.split():
+                                    if palavra.startswith("#"):
+                                        hashtags.append(palavra)
         except Exception as e:
             print(f"[Trends MCP] Erro: {e}")
 
-    # 2. Fallback com Groq se não tivermos títulos
-    if not titulos and GROQ_API_KEY:
-        try:
-            prompt = f"""
-            Gere uma lista de 10 títulos de vídeos virais sobre o tema "{termo}" para a plataforma {plataforma}.
-            Gere também 10 hashtags populares relacionadas.
-            Responda APENAS com um JSON no formato:
-            {{"titulos": ["título1", "título2", ...], "hashtags": ["#tag1", "#tag2", ...]}}
-            """
-            resposta = chamar_groq(prompt, max_tokens=800)
-            dados_fallback = limpar_json(resposta)
-            titulos = dados_fallback.get("titulos", [])[:10]
-            hashtags = dados_fallback.get("hashtags", [])[:10]
-        except Exception as e:
-            print(f"[Fallback] Erro: {e}")
+    # 2. Fallback com Groq - busca tendências reais
+    if not titulos or len(hashtags) < 3:
+        if GROQ_API_KEY:
+            try:
+                prompt = f"""
+                Pesquise as principais tendências atuais sobre o tema "{termo}" na plataforma {plataforma}.
+                Com base em dados reais do momento, forneça:
+                - 10 títulos de vídeos que estão em alta sobre esse tema (use títulos criativos e chamativos)
+                - 10 hashtags populares relacionadas a essas tendências (devem ser hashtags que realmente estão sendo usadas agora)
+                Responda APENAS com um JSON no formato:
+                {{"titulos": ["título1", "título2", ...], "hashtags": ["#hashtag1", "#hashtag2", ...]}}
+                """
+                resposta = chamar_groq(prompt, max_tokens=800)
+                dados_fallback = limpar_json(resposta)
+                titulos_fallback = dados_fallback.get("titulos", [])
+                hashtags_fallback = dados_fallback.get("hashtags", [])
+                if titulos_fallback:
+                    titulos = titulos_fallback[:10]
+                if hashtags_fallback:
+                    hashtags = hashtags_fallback[:10]
+            except Exception as e:
+                print(f"[Fallback] Erro: {e}")
 
-    # 3. Se ainda não temos títulos, usar dados genéricos
+    # 3. Último recurso: gerar a partir do termo, mas com inteligência
     if not titulos:
-        titulos = [f"{termo} - Ideia {i+1}" for i in range(10)]
+        titulos = [f"Tendência {i+1} sobre {termo}" for i in range(10)]
 
-    # 4. Gerar hashtags se não foram obtidas
     if not hashtags:
         palavras = termo.split()
-        base = "".join(palavras).capitalize()
-        tags = [f"#{base}"]
-        if len(palavras) > 1:
-            tags.append(f"#{''.join(palavras[1:]).capitalize()}")
-        tags.extend([f"#{palavras[0].capitalize()}Dicas", f"#{base}2025"])
-        genericas = ["#Viral", "#Trend", "#FYP", "#Explorar", "#Conteudo", "#SocialMedia"]
-        while len(tags) < 10:
-            tags.append(genericas[len(tags) % len(genericas)])
+        tags = []
+        for p in palavras:
+            if len(p) > 2:
+                tags.append(f"#{p.capitalize()}")
+        if not tags:
+            tags = [f"#{termo.replace(' ', '').capitalize()}"]
+        # Adiciona tags de tendência genéricas (não literal)
+        tags += ["#Viral", "#Trend", "#FYP", "#Explorar", "#Conteudo", "#SocialMedia", "#Atualidades", "#Dicas"]
         hashtags = tags[:10]
 
-    # 5. Retornar resultado
+    # Remove duplicatas
+    hashtags = list(dict.fromkeys(hashtags))[:10]
+    titulos = list(dict.fromkeys(titulos))[:10]
+
     return {
-        "hashtags": hashtags[:10],
-        "titulos": titulos[:10],
+        "hashtags": hashtags,
+        "titulos": titulos,
         "videos": videos[:10]
     }
 
