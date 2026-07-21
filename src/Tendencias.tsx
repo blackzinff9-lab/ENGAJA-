@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TrendingUp, Search, Smartphone, Play, Video, Info, ExternalLink } from 'lucide-react';
+import { TrendingUp, Search, Smartphone, Play, Video, Hash, Film, ExternalLink, Loader2 } from 'lucide-react';
 
 type PlataformaTendencia = 'tiktok' | 'instagram' | 'youtube';
 
@@ -9,14 +9,14 @@ const PLATAFORMAS = [
   { id: 'youtube' as PlataformaTendencia, nome: 'YouTube', icone: Video },
 ];
 
-interface VideoTendencia {
-  titulo: string;
-  data: string;
-  posicao: number;
+interface DadosTendencias {
+  hashtags: string[];
+  titulos: string[];
+  videos: { titulo: string; url: string; video_id?: string }[];
 }
 
 export default function Tendencias() {
-  const [videos, setVideos] = useState<VideoTendencia[]>([]);
+  const [dados, setDados] = useState<DadosTendencias | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [termo, setTermo] = useState('');
   const [plataforma, setPlataforma] = useState<PlataformaTendencia>('youtube');
@@ -26,6 +26,7 @@ export default function Tendencias() {
     if (!termo.trim()) return;
     setCarregando(true);
     setErro('');
+    setDados(null);
     try {
       const resposta = await fetch('/api/tendencias', {
         method: 'POST',
@@ -37,26 +38,16 @@ export default function Tendencias() {
 
       if (!resposta.ok) {
         setErro(dados.detail || dados.mensagem || 'Erro ao buscar tendências.');
-        setVideos([]);
         return;
       }
 
-      if (dados.videos && dados.videos.length > 0) {
-        setVideos(dados.videos);
-      } else if (dados.tendencias && dados.tendencias.length > 0) {
-        // Formato antigo compatível
-        setVideos(dados.tendencias.map((t: any) => ({
-          titulo: t.titulo || t.date || '',
-          data: t.date || '',
-          posicao: t.value || 0
-        })));
-      } else {
-        setVideos([]);
-        setErro(dados.mensagem || 'Nenhum dado encontrado para este termo.');
-      }
+      setDados({
+        hashtags: dados.hashtags || [],
+        titulos: dados.titulos || [],
+        videos: dados.videos || []
+      });
     } catch (e) {
       setErro('Falha na conexão com o servidor.');
-      setVideos([]);
     } finally {
       setCarregando(false);
     }
@@ -64,13 +55,13 @@ export default function Tendencias() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white py-20 px-4">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         <h1 className="text-2xl font-bold mb-2 flex items-center gap-2">
           <TrendingUp className="w-6 h-6 text-purple-400" />
           Tendências em Tempo Real
         </h1>
         <p className="text-gray-400 text-sm mb-6">
-          Veja os vídeos em alta no YouTube. TikTok e Instagram em breve.
+          Pesquise um assunto e veja as principais hashtags, títulos e vídeos em alta.
         </p>
 
         <div className="grid grid-cols-3 gap-3 mb-6">
@@ -98,7 +89,7 @@ export default function Tendencias() {
             value={termo}
             onChange={(e) => setTermo(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && buscarTendencias()}
-            placeholder={`Buscar tendências no YouTube...`}
+            placeholder={`Buscar tendências em ${PLATAFORMAS.find(p => p.id === plataforma)?.nome}...`}
             className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 outline-none focus:border-purple-500/50"
           />
           <button
@@ -107,7 +98,7 @@ export default function Tendencias() {
             className="px-4 py-3 rounded-xl bg-purple-500/20 text-purple-400 font-bold hover:bg-purple-500/30 transition disabled:opacity-50"
           >
             {carregando ? (
-              <div className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <Search className="w-5 h-5" />
             )}
@@ -116,39 +107,78 @@ export default function Tendencias() {
 
         {erro && (
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-amber-400 text-sm mb-6 flex items-start gap-2">
-            <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <span>⚠️</span>
             <span>{erro}</span>
           </div>
         )}
 
-        {videos.length > 0 && (
-          <div className="space-y-2">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-purple-400" />
-              Vídeos em alta: "{termo}"
-            </h2>
-            {videos.map((video, idx) => (
-              <div
-                key={idx}
-                className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-start gap-3 hover:bg-white/10 transition"
-              >
-                <div className="flex-shrink-0 w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center text-purple-400 font-bold text-sm">
-                  {idx + 1}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-medium truncate">{video.titulo}</p>
-                  <p className="text-gray-500 text-xs mt-1">{video.data}</p>
-                </div>
-                <ExternalLink className="w-4 h-4 text-gray-500 flex-shrink-0 mt-1" />
+        {dados && (
+          <div className="space-y-8">
+            <div>
+              <h3 className="text-lg font-semibold flex items-center gap-2 mb-3">
+                <Hash className="w-5 h-5 text-purple-400" />
+                Hashtags em alta
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {dados.hashtags.map((tag, i) => (
+                  <span
+                    key={i}
+                    className="px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-sm font-medium"
+                  >
+                    {tag.startsWith('#') ? tag : `#${tag}`}
+                  </span>
+                ))}
               </div>
-            ))}
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold flex items-center gap-2 mb-3">
+                <Film className="w-5 h-5 text-emerald-400" />
+                Títulos populares
+              </h3>
+              <div className="space-y-2">
+                {dados.titulos.map((titulo, i) => (
+                  <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-3 flex items-center gap-3">
+                    <span className="text-sm font-bold text-purple-400 w-6">{i + 1}</span>
+                    <span className="text-white/80 text-sm">{titulo}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {plataforma === 'youtube' && dados.videos.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold flex items-center gap-2 mb-3">
+                  <Video className="w-5 h-5 text-red-400" />
+                  Vídeos em destaque
+                </h3>
+                <div className="space-y-2">
+                  {dados.videos.map((video, i) => (
+                    <a
+                      key={i}
+                      href={video.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-white/5 border border-white/10 rounded-xl p-3 flex items-center justify-between hover:bg-white/10 transition"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold text-gray-400 w-6">{i + 1}</span>
+                        <span className="text-white/80 text-sm">{video.titulo}</span>
+                      </div>
+                      <ExternalLink className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        <p className="text-gray-500 text-xs mt-6 text-center">
-          Dados fornecidos pela API oficial do YouTube.
+        <p className="text-gray-500 text-xs mt-8 text-center">
+          Dados obtidos via {plataforma === 'youtube' ? 'YouTube Data API' : 'Trends MCP API'}.
+          {!dados && !carregando && ' Pesquise algo para ver as tendências.'}
         </p>
       </div>
     </div>
   );
-}
+  }
