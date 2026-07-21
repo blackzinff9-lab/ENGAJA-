@@ -8,7 +8,7 @@ import Calendario from './Calendario';
 import Tendencias from './Tendencias';
 import { Platform } from './types';
 import { StatusBackend } from './api';
-import { Zap, Sparkles, CheckCircle2, Menu, X } from 'lucide-react';
+import { Zap, Sparkles, CheckCircle2, Menu, X, LogIn } from 'lucide-react';
 import { useLanguage } from './LanguageContext';
 
 function App() {
@@ -22,6 +22,9 @@ function App() {
   const [usuario, setUsuario] = useState<any>(null);
   const [consentiu, setConsentiu] = useState(false);
   const [menuDropdownAberto, setMenuDropdownAberto] = useState(false);
+  const [modoLogin, setModoLogin] = useState(false); // Controla exibição da tela de login
+  const [temaSalvo, setTemaSalvo] = useState(''); // Tema digitado antes do login
+  const [plataformaSalva, setPlataformaSalva] = useState<Platform | null>(null); // Plataforma selecionada antes do login
 
   const verificarConsentimento = () => {
     const aceito = localStorage.getItem('termos_aceitos');
@@ -58,6 +61,8 @@ function App() {
               sub: sub,
               plano: data.plano || 'free'
             });
+            // Se estava no modo login, sai dele
+            setModoLogin(false);
           }
         })
         .catch(() => {});
@@ -102,6 +107,14 @@ function App() {
   }, []);
 
   const aoGerar = async (tema: string, plataforma: Platform) => {
+    // Se não estiver logado, salva o tema e plataforma e mostra a tela de login
+    if (!usuario) {
+      setTemaSalvo(tema);
+      setPlataformaSalva(plataforma);
+      setModoLogin(true);
+      return;
+    }
+
     setCarregando(true);
     setConteudoGerado(null);
     try {
@@ -128,6 +141,7 @@ function App() {
   };
 
   const handleLoginSucesso = (nome: string, email: string, avatar: string) => {
+    // Apenas define o usuário básico; o token virá pela URL e será processado no useEffect
     setUsuario({ nome, email, avatar });
   };
 
@@ -156,7 +170,8 @@ function App() {
   if (path === '/termos') return <Termos />;
   if (path === '/privacidade') return <Privacidade />;
 
-  if (!usuario) {
+  // Se estiver no modo login, mostra a tela de login
+  if (modoLogin) {
     return (
       <PaginaLogin
         aoEntrar={handleLoginSucesso}
@@ -165,7 +180,8 @@ function App() {
     );
   }
 
-  if (!consentiu) {
+  // Se usuário logado mas não consentiu, mostra página de consentimento
+  if (usuario && !consentiu) {
     return <ConsentPage onConsent={handleConsent} />;
   }
 
@@ -188,12 +204,22 @@ function App() {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-2">
-              {usuario.avatar && (
-                <img src={usuario.avatar} alt={usuario.nome} className="w-8 h-8 rounded-full" />
-              )}
-              <span className="text-sm text-gray-400">{usuario.nome}</span>
-            </div>
+            {usuario ? (
+              <div className="hidden md:flex items-center gap-2">
+                {usuario.avatar && (
+                  <img src={usuario.avatar} alt={usuario.nome} className="w-8 h-8 rounded-full" />
+                )}
+                <span className="text-sm text-gray-400">{usuario.nome}</span>
+              </div>
+            ) : (
+              <button
+                onClick={() => setModoLogin(true)}
+                className="hidden md:flex items-center gap-1 px-4 py-2 rounded-xl bg-indigo-600/20 text-indigo-400 text-sm font-bold hover:bg-indigo-600/30 transition"
+              >
+                <LogIn className="w-4 h-4" />
+                Entrar
+              </button>
+            )}
 
             <button
               onClick={() => setLang(lang === 'pt' ? 'en' : 'pt')}
@@ -235,9 +261,18 @@ function App() {
               )}
             </div>
 
-            <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors">
-              {t('nav_logout')}
-            </button>
+            {usuario ? (
+              <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors">
+                {t('nav_logout')}
+              </button>
+            ) : (
+              <button
+                onClick={() => setModoLogin(true)}
+                className="md:hidden text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+              >
+                <LogIn className="w-5 h-5" />
+              </button>
+            )}
           </div>
 
           <button className="md:hidden text-white" onClick={() => setIsMenuOpen(!isMenuOpen)}>
@@ -247,21 +282,33 @@ function App() {
 
         {isMenuOpen && (
           <div className="md:hidden absolute top-full left-0 w-full bg-gray-900 border-t border-gray-800 py-4 px-6 flex flex-col gap-4 animate-fade-in">
-            <div className="flex items-center gap-3 mb-2">
-              {usuario.avatar && <img src={usuario.avatar} alt={usuario.nome} className="w-8 h-8 rounded-full" />}
-              <span className="text-sm text-gray-400">{usuario.nome}</span>
-            </div>
+            {usuario ? (
+              <div className="flex items-center gap-3 mb-2">
+                {usuario.avatar && <img src={usuario.avatar} alt={usuario.nome} className="w-8 h-8 rounded-full" />}
+                <span className="text-sm text-gray-400">{usuario.nome}</span>
+              </div>
+            ) : (
+              <button
+                onClick={() => { setModoLogin(true); setIsMenuOpen(false); }}
+                className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 transition"
+              >
+                <LogIn className="w-4 h-4" />
+                Entrar / Criar conta
+              </button>
+            )}
             <a href="/calendario" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>📅 Calendário Editorial</a>
             <a href="/tendencias" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>📊 Tendências</a>
             <a href="mailto:engajaibrasil00@gmail.com" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>{t('menu_support')}</a>
             <a href="/termos" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>{t('menu_terms')}</a>
             <a href="/privacidade" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>{t('menu_privacy')}</a>
-            <div className="border-t border-gray-700 pt-3 flex items-center justify-between">
-              <button onClick={() => { handleLogout(); setIsMenuOpen(false); }} className="text-sm text-gray-400 hover:text-white transition">{t('nav_logout')}</button>
-              <button onClick={() => setLang(lang === 'pt' ? 'en' : 'pt')} className="text-xs px-2 py-1 rounded-lg bg-white/5 text-white/60 hover:text-white transition">
-                {lang === 'pt' ? '🇧🇷 PT' : '🇺🇸 EN'}
-              </button>
-            </div>
+            {usuario && (
+              <div className="border-t border-gray-700 pt-3 flex items-center justify-between">
+                <button onClick={() => { handleLogout(); setIsMenuOpen(false); }} className="text-sm text-gray-400 hover:text-white transition">{t('nav_logout')}</button>
+                <button onClick={() => setLang(lang === 'pt' ? 'en' : 'pt')} className="text-xs px-2 py-1 rounded-lg bg-white/5 text-white/60 hover:text-white transition">
+                  {lang === 'pt' ? '🇧🇷 PT' : '🇺🇸 EN'}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </nav>
@@ -301,6 +348,9 @@ function App() {
             statusBackend={statusBackend}
             conteudoGerado={conteudoGerado}
             usuario={usuario}
+            temaInicial={temaSalvo}
+            plataformaInicial={plataformaSalva}
+            onLimparCamposSalvos={() => { setTemaSalvo(''); setPlataformaSalva(null); }}
           />
         </div>
       </main>
