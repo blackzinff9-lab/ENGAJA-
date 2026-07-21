@@ -114,6 +114,7 @@ export default function Tendencias() {
 
         {dados && (
           <div className="space-y-8">
+            {/* Hashtags - sempre aparece */}
             <div>
               <h3 className="text-lg font-semibold flex items-center gap-2 mb-3">
                 <Hash className="w-5 h-5 text-purple-400" />
@@ -131,21 +132,7 @@ export default function Tendencias() {
               </div>
             </div>
 
-            <div>
-              <h3 className="text-lg font-semibold flex items-center gap-2 mb-3">
-                <Film className="w-5 h-5 text-emerald-400" />
-                Títulos populares
-              </h3>
-              <div className="space-y-2">
-                {dados.titulos.map((titulo, i) => (
-                  <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-3 flex items-center gap-3">
-                    <span className="text-sm font-bold text-purple-400 w-6">{i + 1}</span>
-                    <span className="text-white/80 text-sm">{titulo}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
+            {/* Para YouTube: mostra vídeos (já contém os títulos) */}
             {plataforma === 'youtube' && dados.videos.length > 0 && (
               <div>
                 <h3 className="text-lg font-semibold flex items-center gap-2 mb-3">
@@ -171,6 +158,24 @@ export default function Tendencias() {
                 </div>
               </div>
             )}
+
+            {/* Para TikTok/Instagram: mostra títulos (não temos vídeos com URL) */}
+            {plataforma !== 'youtube' && dados.titulos.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold flex items-center gap-2 mb-3">
+                  <Film className="w-5 h-5 text-emerald-400" />
+                  Títulos populares
+                </h3>
+                <div className="space-y-2">
+                  {dados.titulos.map((titulo, i) => (
+                    <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-3 flex items-center gap-3">
+                      <span className="text-sm font-bold text-purple-400 w-6">{i + 1}</span>
+                      <span className="text-white/80 text-sm">{titulo}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -181,4 +186,4 @@ export default function Tendencias() {
       </div>
     </div>
   );
-  }
+}
