@@ -208,7 +208,7 @@ export default function Dashboard({
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Engajáí
+              Engajaí
             </h1>
             <p className="text-white/60 text-sm mt-1">
               Tendências reais • IA real • Resultados profissionais
@@ -321,7 +321,8 @@ export default function Dashboard({
           </div>
         )}
       </form>
-            {conteudoGerado && (
+
+      {conteudoGerado && (
         <section className="max-w-4xl mx-auto mt-12 space-y-6">
           <h2 className="text-2xl font-bold text-transparent bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text">
             {t('dash_viral_title')}
