@@ -1,5 +1,5 @@
 """
-ENGAJAÍ — Backend FastAPI (Versão Estável Groq)
+ENGAJAÍ — Backend FastAPI (Versão GPT-OSS 120B)
 Deploy no Render
 
 Variáveis de ambiente necessárias:
@@ -31,7 +31,8 @@ TRENDSMCP_API_KEY = os.getenv("TRENDSMCP_API_KEY", "")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 JWT_SECRET = os.getenv("JWT_SECRET", "contentforge-secret-change-me")
-GROQ_MODEL = "llama-3.3-70b-versatile"
+# >>> MODELO ATUALIZADO PARA GPT-OSS 120B <<<
+GROQ_MODEL = "openai/gpt-oss-120b"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
@@ -62,6 +63,10 @@ class RequisicaoSequencia(BaseModel):
 class RequisicaoTendencia(BaseModel):
     termo: str
     plataforma: str
+
+class RequisicaoVisita(BaseModel):
+    page: str = "/"
+    referer: str = ""
 
 # ========== GOOGLE OAUTH ==========
 @app.get("/api/auth/google/login")
@@ -242,7 +247,28 @@ def pesquisar_trendsmcp(tema: str, plataforma: str) -> str:
     except Exception as e:
         print(f"[Trends MCP] Erro: {e}")
         return ""
-        # ========== ENDPOINT DE TENDÊNCIAS (HASHTAGS, TÍTULOS E VÍDEOS REAIS) ==========
+        # ========== ENDPOINT DE VISITANTES (ANÔNIMO) ==========
+@app.post("/api/visitar")
+async def registrar_visita(req: RequisicaoVisita, request: Request):
+    try:
+        ip = request.headers.get("x-forwarded-for", request.client.host)
+        user_agent = request.headers.get("user-agent", "")
+        referer = req.referer or request.headers.get("referer", "")
+
+        data = {
+            "ip": ip,
+            "user_agent": user_agent,
+            "referer": referer,
+            "page": req.page,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        supabase.table("visitors").insert(data).execute()
+        return {"status": "ok"}
+    except Exception as e:
+        print(f"[Visita] Erro: {e}")
+        return {"status": "error"}, 500
+
+# ========== ENDPOINT DE TENDÊNCIAS (HASHTAGS, TÍTULOS E VÍDEOS REAIS) ==========
 
 @app.post("/api/tendencias")
 async def buscar_tendencias(req: RequisicaoTendencia):
@@ -278,11 +304,9 @@ async def buscar_tendencias(req: RequisicaoTendencia):
                         "url": f"https://www.youtube.com/watch?v={video_id}"
                     })
                     titulos.append(titulo)
-                    # Extrai hashtags do título
                     for palavra in titulo.split():
                         if palavra.startswith("#"):
                             hashtags.append(palavra)
-            # Se não achou hashtags, busca tags dos vídeos
             if not hashtags and videos:
                 video_ids = ",".join([v["video_id"] for v in videos[:5]])
                 url_videos = f"https://www.googleapis.com/youtube/v3/videos?part=snippet&id={video_ids}&key={YOUTUBE_API_KEY}"
@@ -370,11 +394,9 @@ async def buscar_tendencias(req: RequisicaoTendencia):
                 tags.append(f"#{p.capitalize()}")
         if not tags:
             tags = [f"#{termo.replace(' ', '').capitalize()}"]
-        # Adiciona tags de tendência genéricas (não literal)
         tags += ["#Viral", "#Trend", "#FYP", "#Explorar", "#Conteudo", "#SocialMedia", "#Atualidades", "#Dicas"]
         hashtags = tags[:10]
 
-    # Remove duplicatas
     hashtags = list(dict.fromkeys(hashtags))[:10]
     titulos = list(dict.fromkeys(titulos))[:10]
 
