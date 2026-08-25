@@ -488,27 +488,53 @@ async def gerar_conteudo(req: RequisicaoConteudo, request: Request):
     if not dados_tendencias:
         dados_tendencias = "Nenhum dado externo disponível."
 
-    prompt_curto = f"""Crie conteúdo profissional para {nome_plataforma} sobre: "{req.tema}"
+    # ========== PROMPT CURTO (TÍTULO, DESCRIÇÃO, HASHTAGS) - MELHORADO ==========
+    prompt_curto = f"""Crie um conteúdo VIRAL e PROFISSIONAL para {nome_plataforma} sobre o tema: "{req.tema}".
 
-Dados de tendências reais (use como inspiração):
+Dados de tendências reais (use como inspiração OBRIGATÓRIA):
 {dados_tendencias}
 
-Gere APENAS um JSON com:
-- "titulo": título chamativo e otimizado para SEO (máx 100 caracteres, com gancho emocional ou curiosidade)
-- "descricao": descrição envolvente (150-300 caracteres) com call-to-action claro, emojis estratégicos e palavras-chave relevantes
-- "hashtags": string única com 5-8 hashtags separadas por espaço (ex: "#tag1 #tag2 #tag3"), misturando tags amplas, de nicho e tendência
+Gere APENAS um JSON válido com os seguintes campos:
+- "titulo": um título CRIATIVO e CHAMATIVO (máx. 80 caracteres) que gere curiosidade e use palavras-chave fortes. Exemplo: "Como fazer um bolo vegano em 5 minutos que derrete na boca".
+- "descricao": uma descrição ENVOLVENTE (150-300 caracteres) com emojis, call-to-action e palavras-chave. Exemplo: "🍰 Aprenda a fazer o bolo vegano mais fofo e saboroso que você já provou! ✅ Ingredientes simples ✅ Sem glúten ✅ Fácil e rápido. Salve e compartilhe!"
+- "hashtags": uma string com 5-8 hashtags REAIS e POPULARES sobre o tema, separadas por espaço. Exemplo: "#bolovegano #receitasfaceis #vegando #alimentacaosaudavel #receita"
 
-Responda em {idioma}. APENAS o JSON, sem markdown."""
-    resposta_curta = chamar_groq(prompt_curto, max_tokens=800)
+Responda em {idioma}. APENAS o JSON, sem markdown ou texto extra."""
+    resposta_curta = chamar_groq(prompt_curto, max_tokens=1200)
     dados_curtos = normalizar_chaves(limpar_json(resposta_curta))
-    titulo = dados_curtos.get("titulo") or f"{req.tema.split()[0].capitalize()}: Ideia Principal"
-    descricao = dados_curtos.get("descricao") or f"Conteúdo sobre {req.tema}."
-    hashtags = dados_curtos.get("hashtags", "")
-    if isinstance(hashtags, list):
-        hashtags = " ".join(f"#{h.strip().lstrip('#')}" for h in hashtags if h.strip())
-    if not hashtags:
-        hashtags = f"#{req.tema.replace(' ', '')} #conteudo #viral"
 
+    # Fallback MELHORADO: se a IA não retornar, usa o tema para criar algo melhor
+    if not dados_curtos.get("titulo"):
+        palavras = req.tema.split()
+        if len(palavras) >= 2:
+            titulo = f"{palavras[0].capitalize()} {palavras[1].capitalize()}: Dica Imperdível!"
+        else:
+            titulo = f"{req.tema.capitalize()}: Descubra Agora!"
+    else:
+        titulo = dados_curtos.get("titulo")
+
+    if not dados_curtos.get("descricao"):
+        descricao = f"🎯 Conteúdo incrível sobre {req.tema}! Aprenda dicas práticas e se inspire. ✅ Compartilhe com quem precisa."
+    else:
+        descricao = dados_curtos.get("descricao")
+
+    hashtags_raw = dados_curtos.get("hashtags", "")
+    if isinstance(hashtags_raw, list):
+        hashtags = " ".join(f"#{h.strip().lstrip('#')}" for h in hashtags_raw if h.strip())
+    elif isinstance(hashtags_raw, str):
+        hashtags = hashtags_raw.strip()
+    else:
+        hashtags = ""
+
+    if not hashtags:
+        palavras = req.tema.split()
+        tags = [f"#{palavras[0].capitalize()}"]
+        if len(palavras) > 1:
+            tags.append(f"#{''.join(palavras).capitalize()}")
+        tags.extend(["#Dicas", "#Conteudo", "#Viral", "#Trend", "#FYP"])
+        hashtags = " ".join(tags)
+
+    # ========== PROMPT LONGO (ROTEIRO E IDEIA DE EDIÇÃO) ==========
     prompt_longo = f"""Crie um roteiro detalhado e uma ideia de edição profissional para {nome_plataforma}: "{req.tema}"
 
 Título: "{titulo}"
@@ -524,7 +550,7 @@ Gere APENAS um JSON com:
 - "tendencias": array com 3 strings curtas sobre tendências identificadas.
 
 Responda em {idioma}. APENAS o JSON, sem markdown."""
-    resposta_longa = chamar_groq(prompt_longo, max_tokens=2500)
+    resposta_longa = chamar_groq(prompt_longo, max_tokens=2800)
     dados_longos = normalizar_chaves(limpar_json(resposta_longa))
     roteiro = dados_longos.get("roteiro", f"[ABERTURA] {req.tema}. [DESENVOLVIMENTO] Principais pontos. [ENCERRAMENTO] Call to action.")
     ideia_edicao = dados_longos.get("ideiaEdicao", "Paleta: #0A0A0A, #FFD700, #00E5FF. Fonte Montserrat. Música eletrônica 120 BPM.")
@@ -601,8 +627,7 @@ Responda em {idioma}. Não use markdown, APENAS o JSON."""
 
     await registrar_uso(user_id, "sequencia")
     return {"ideias": ideias[:10], "temaOriginal": req.tema, "plataforma": req.plataforma}
-
-# ==========================================
+    # ==========================================
 # MERCADO PAGO
 # ==========================================
 
