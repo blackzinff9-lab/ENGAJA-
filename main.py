@@ -31,7 +31,6 @@ TRENDSMCP_API_KEY = os.getenv("TRENDSMCP_API_KEY", "")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 JWT_SECRET = os.getenv("JWT_SECRET", "contentforge-secret-change-me")
-# >>> MODELO ATUALIZADO PARA GPT-OSS 120B <<<
 GROQ_MODEL = "openai/gpt-oss-120b"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN", "")
@@ -209,11 +208,15 @@ def chamar_groq(prompt: str, max_tokens: int = 500) -> str:
     dados = resp.json()
     return dados["choices"][0]["message"]["content"]
 
+# ========== FUNÇÕES DE PESQUISA COM LOGS ==========
 def pesquisar_youtube(tema: str) -> str:
-    if not YOUTUBE_API_KEY: return ""
+    if not YOUTUBE_API_KEY:
+        print("[YouTube] Chave não configurada")
+        return ""
     try:
         url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&q={urllib.parse.quote(tema)}&type=video&order=viewCount&maxResults=5&relevanceLanguage=pt&key={YOUTUBE_API_KEY}"
         resp = requests.get(url, timeout=10)
+        print(f"[YouTube] Status: {resp.status_code}, Resposta: {resp.text[:300]}")
         if not resp.ok: return ""
         videos = resp.json().get("items", [])
         linhas = [f'{i+1}. {v["snippet"]["title"]}' for i, v in enumerate(videos)]
@@ -223,7 +226,9 @@ def pesquisar_youtube(tema: str) -> str:
         return ""
 
 def pesquisar_trendsmcp(tema: str, plataforma: str) -> str:
-    if not TRENDSMCP_API_KEY: return ""
+    if not TRENDSMCP_API_KEY:
+        print("[Trends MCP] Chave não configurada")
+        return ""
     try:
         fonte = "tiktok" if plataforma == "tiktok" else "google trends"
         resp = requests.post(
@@ -235,14 +240,37 @@ def pesquisar_trendsmcp(tema: str, plataforma: str) -> str:
             json={"source": fonte, "keyword": tema},
             timeout=10
         )
+        print(f"[Trends MCP] Status: {resp.status_code}, Resposta: {resp.text[:300]}")
         if not resp.ok: return ""
         dados = resp.json()
         corpo = dados.get("body", [])
         if isinstance(corpo, str):
-            corpo = json.loads(corpo)
-        if not isinstance(corpo, list) or len(corpo) < 3: return ""
-        ultimos = corpo[-5:]
-        linhas = [f"- {p.get('date', 'N/A')}: popularidade {p.get('value', 'N/A')}/100" for p in ultimos]
+            try:
+                corpo = json.loads(corpo)
+            except:
+                corpo = []
+        if not isinstance(corpo, list):
+            corpo = []
+        if len(corpo) == 0:
+            if "data" in dados:
+                corpo = dados.get("data", [])
+            elif "results" in dados:
+                corpo = dados.get("results", [])
+        if not corpo:
+            return ""
+        items = corpo[:10]
+        linhas = []
+        for item in items:
+            if isinstance(item, dict):
+                titulo = item.get("title") or item.get("name") or item.get("keyword") or ""
+                if titulo:
+                    linhas.append(f"- {titulo}")
+                elif "date" in item:
+                    linhas.append(f"- {item['date']}: {item.get('value', '')}")
+            elif isinstance(item, str):
+                linhas.append(f"- {item}")
+        if not linhas:
+            return ""
         return f"Tendências ({fonte}):\n" + "\n".join(linhas)
     except Exception as e:
         print(f"[Trends MCP] Erro: {e}")
@@ -286,13 +314,17 @@ async def buscar_tendencias(req: RequisicaoTendencia):
         if not YOUTUBE_API_KEY:
             raise HTTPException(500, detail="Chave YouTube API não configurada")
         try:
+            # Vídeos mais recentes (últimos 30 dias)
+            data_limite = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
             url = (
                 f"https://www.googleapis.com/youtube/v3/search"
                 f"?part=snippet&q={urllib.parse.quote(termo)}"
-                f"&type=video&order=viewCount&maxResults=10"
+                f"&type=video&order=date&maxResults=10"
+                f"&publishedAfter={data_limite}"
                 f"&relevanceLanguage=pt&key={YOUTUBE_API_KEY}"
             )
             resp = requests.get(url, timeout=10)
+            print(f"[YouTube Tendências] Status: {resp.status_code}, Resposta: {resp.text[:300]}")
             if resp.ok:
                 dados = resp.json()
                 for item in dados.get("items", []):
@@ -335,11 +367,15 @@ async def buscar_tendencias(req: RequisicaoTendencia):
                 json={"source": source, "keyword": termo},
                 timeout=10
             )
+            print(f"[Trends MCP Tendências] Status: {resp.status_code}, Resposta: {resp.text[:300]}")
             if resp.ok:
                 dados = resp.json()
                 corpo = dados.get("body", [])
                 if isinstance(corpo, str):
-                    corpo = json.loads(corpo)
+                    try:
+                        corpo = json.loads(corpo)
+                    except:
+                        corpo = []
                 if isinstance(corpo, list):
                     for item in corpo[:10]:
                         if "title" in item:
@@ -359,26 +395,23 @@ async def buscar_tendencias(req: RequisicaoTendencia):
         except Exception as e:
             print(f"[Trends MCP] Erro: {e}")
 
-    # 2. Fallback com Groq - busca tendências reais
+    # 2. Fallback com Groq - busca tendências reais (melhorado)
     if not titulos or len(hashtags) < 3:
         if GROQ_API_KEY:
             try:
                 prompt = f"""
-                Pesquise as principais tendências atuais sobre o tema "{termo}" na plataforma {plataforma}.
-                Com base em dados reais do momento, forneça:
-                - 10 títulos de vídeos que estão em alta sobre esse tema (use títulos criativos e chamativos)
-                - 10 hashtags populares relacionadas a essas tendências (devem ser hashtags que realmente estão sendo usadas agora)
-                Responda APENAS com um JSON no formato:
-                {{"titulos": ["título1", "título2", ...], "hashtags": ["#hashtag1", "#hashtag2", ...]}}
+                Com base no seu conhecimento sobre o que está em alta AGORA na plataforma {plataforma} sobre o tema "{termo}", gere:
+                - 10 títulos de vídeos reais que estariam em alta (use criatividade, mas seja realista)
+                - 10 hashtags populares que seriam usadas (use hashtags reais com #)
+                Responda APENAS com JSON: {{"titulos": [...], "hashtags": [...]}}
                 """
-                resposta = chamar_groq(prompt, max_tokens=800)
+                resposta = chamar_groq(prompt, max_tokens=1000)
                 dados_fallback = limpar_json(resposta)
-                titulos_fallback = dados_fallback.get("titulos", [])
-                hashtags_fallback = dados_fallback.get("hashtags", [])
-                if titulos_fallback:
-                    titulos = titulos_fallback[:10]
-                if hashtags_fallback:
-                    hashtags = hashtags_fallback[:10]
+                if dados_fallback.get("titulos"):
+                    titulos = dados_fallback["titulos"][:10]
+                if dados_fallback.get("hashtags"):
+                    hashtags = dados_fallback["hashtags"][:10]
+                print(f"[Fallback] Gerou {len(titulos)} títulos e {len(hashtags)} hashtags")
             except Exception as e:
                 print(f"[Fallback] Erro: {e}")
 
@@ -400,13 +433,14 @@ async def buscar_tendencias(req: RequisicaoTendencia):
     hashtags = list(dict.fromkeys(hashtags))[:10]
     titulos = list(dict.fromkeys(titulos))[:10]
 
+    print(f"[Tendências] Videos: {len(videos)}, Titulos: {len(titulos)}, Hashtags: {len(hashtags)}")
+
     return {
         "hashtags": hashtags,
         "titulos": titulos,
         "videos": videos[:10]
-    }
-
-# ========== CONTROLE DE LIMITES ==========
+                        }
+                # ========== CONTROLE DE LIMITES ==========
 async def get_plano(user_id: str) -> str:
     try:
         res = supabase.table("users").select("plan").eq("id", user_id).execute()
@@ -451,7 +485,7 @@ async def verificar_status_assinatura(user_id: str):
     except Exception as e:
         print(f"[Verificação Assinatura] Erro: {e}")
         return {"status": "error"}
-        # ==========================================
+                # ==========================================
 # ENDPOINT PRINCIPAL DE GERAÇÃO
 # ==========================================
 
@@ -571,9 +605,8 @@ Responda em {idioma}. APENAS o JSON, sem markdown."""
         "plataforma": req.plataforma,
         "tema": req.tema,
         "fonteTendencias": "trendsmcp+youtube" if req.plataforma == "youtube" else "trendsmcp",
-    }
-
-# ==========================================
+}
+                # ==========================================
 # ENDPOINT DE SEQUÊNCIA DE 10 IDEIAS
 # ==========================================
 
@@ -627,7 +660,8 @@ Responda em {idioma}. Não use markdown, APENAS o JSON."""
 
     await registrar_uso(user_id, "sequencia")
     return {"ideias": ideias[:10], "temaOriginal": req.tema, "plataforma": req.plataforma}
-    # ==========================================
+
+# ==========================================
 # MERCADO PAGO
 # ==========================================
 
