@@ -6,6 +6,9 @@ import Privacidade from './Privacidade';
 import ConsentPage from './ConsentPage';
 import Calendario from './Calendario';
 import Tendencias from './Tendencias';
+import RaioX from './RaioX';
+import DiagnosticoViral from './DiagnosticoViral';
+import SugestaoDia from './SugestaoDia';
 import { Platform } from './types';
 import { StatusBackend } from './api';
 import { Zap, Sparkles, CheckCircle2, Menu, X, LogIn } from 'lucide-react';
@@ -22,9 +25,9 @@ function App() {
   const [usuario, setUsuario] = useState<any>(null);
   const [consentiu, setConsentiu] = useState(false);
   const [menuDropdownAberto, setMenuDropdownAberto] = useState(false);
-  const [modoLogin, setModoLogin] = useState(false); // Controla exibição da tela de login
-  const [temaSalvo, setTemaSalvo] = useState(''); // Tema digitado antes do login
-  const [plataformaSalva, setPlataformaSalva] = useState<Platform | null>(null); // Plataforma selecionada antes do login
+  const [modoLogin, setModoLogin] = useState(false);
+  const [temaSalvo, setTemaSalvo] = useState('');
+  const [plataformaSalva, setPlataformaSalva] = useState<Platform | null>(null);
 
   const verificarConsentimento = () => {
     const aceito = localStorage.getItem('termos_aceitos');
@@ -61,7 +64,6 @@ function App() {
               sub: sub,
               plano: data.plano || 'free'
             });
-            // Se estava no modo login, sai dele
             setModoLogin(false);
           }
         })
@@ -107,7 +109,6 @@ function App() {
   }, []);
 
   const aoGerar = async (tema: string, plataforma: Platform) => {
-    // Se não estiver logado, salva o tema e plataforma e mostra a tela de login
     if (!usuario) {
       setTemaSalvo(tema);
       setPlataformaSalva(plataforma);
@@ -141,7 +142,6 @@ function App() {
   };
 
   const handleLoginSucesso = (nome: string, email: string, avatar: string) => {
-    // Apenas define o usuário básico; o token virá pela URL e será processado no useEffect
     setUsuario({ nome, email, avatar });
   };
 
@@ -165,12 +165,16 @@ function App() {
   }, []);
 
   const path = window.location.pathname;
+
+  // Rotas das novas páginas
+  if (path === '/raio-x') return <RaioX />;
+  if (path === '/diagnostico-viral') return <DiagnosticoViral />;
+  if (path === '/sugestao-dia') return <SugestaoDia />;
   if (path === '/calendario') return <Calendario />;
   if (path === '/tendencias') return <Tendencias />;
   if (path === '/termos') return <Termos />;
   if (path === '/privacidade') return <Privacidade />;
 
-  // Se estiver no modo login, mostra a tela de login
   if (modoLogin) {
     return (
       <PaginaLogin
@@ -180,7 +184,6 @@ function App() {
     );
   }
 
-  // Se usuário logado mas não consentiu, mostra página de consentimento
   if (usuario && !consentiu) {
     return <ConsentPage onConsent={handleConsent} />;
   }
@@ -241,12 +244,21 @@ function App() {
               </button>
 
               {menuDropdownAberto && (
-                <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-lg py-2 z-50">
+                <div className="absolute right-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-xl shadow-lg py-2 z-50">
                   <a href="/calendario" className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition" onClick={() => setMenuDropdownAberto(false)}>
                     📅 Calendário Editorial
                   </a>
                   <a href="/tendencias" className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition" onClick={() => setMenuDropdownAberto(false)}>
                     📊 Tendências
+                  </a>
+                  <a href="/raio-x" className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition" onClick={() => setMenuDropdownAberto(false)}>
+                    🔍 Raio-X do Vídeo
+                  </a>
+                  <a href="/diagnostico-viral" className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition" onClick={() => setMenuDropdownAberto(false)}>
+                    📈 Diagnóstico de Viralização
+                  </a>
+                  <a href="/sugestao-dia" className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition" onClick={() => setMenuDropdownAberto(false)}>
+                    💡 Sugestão do Dia
                   </a>
                   <a href="mailto:engajaibrasil00@gmail.com" className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition" onClick={() => setMenuDropdownAberto(false)}>
                     {t('menu_support')}
@@ -298,6 +310,9 @@ function App() {
             )}
             <a href="/calendario" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>📅 Calendário Editorial</a>
             <a href="/tendencias" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>📊 Tendências</a>
+            <a href="/raio-x" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>🔍 Raio-X do Vídeo</a>
+            <a href="/diagnostico-viral" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>📈 Diagnóstico de Viralização</a>
+            <a href="/sugestao-dia" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>💡 Sugestão do Dia</a>
             <a href="mailto:engajaibrasil00@gmail.com" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>{t('menu_support')}</a>
             <a href="/termos" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>{t('menu_terms')}</a>
             <a href="/privacidade" className="text-sm text-gray-300 hover:text-white transition" onClick={() => setIsMenuOpen(false)}>{t('menu_privacy')}</a>
